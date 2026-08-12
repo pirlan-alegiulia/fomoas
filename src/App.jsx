@@ -48,6 +48,42 @@ export default function App() {
     fetchEvents();
   }, []);
 
+  // Aggiorna i dati strutturati (Schema.org) ogni volta che la lista eventi cambia,
+  // cosi Google e gli altri crawler possono leggere gli eventi come tali
+  useEffect(() => {
+    if (events.length === 0) return;
+
+    const structuredData = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      itemListElement: events.map((e, i) => ({
+        "@type": "Event",
+        position: i + 1,
+        name: e.titolo,
+        startDate: e.data,
+        location: {
+          "@type": "Place",
+          name: e.luogo,
+        },
+        description: e.descrizione || undefined,
+        organizer: {
+          "@type": "Organization",
+          name: e.organizzatore,
+        },
+        url: e.link_verifica || undefined,
+      })),
+    };
+
+    let script = document.getElementById("eventi-structured-data");
+    if (!script) {
+      script = document.createElement("script");
+      script.id = "eventi-structured-data";
+      script.type = "application/ld+json";
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(structuredData);
+  }, [events]);
+
   async function fetchEvents() {
     setLoading(true);
     const { data, error } = await supabase
@@ -82,6 +118,7 @@ export default function App() {
     const { error } = await supabase.from("eventi").insert([
       {
         ...form,
+        ora: form.ora || null,
         reports: 0,
         verificato: false,
       },
