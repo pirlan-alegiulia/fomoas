@@ -89,6 +89,7 @@ export default function App() {
     const { data, error } = await supabase
       .from("eventi")
       .select("*")
+      .eq("verificato", true)
       .order("data", { ascending: true });
     if (error) {
       setLoadError(error.message);

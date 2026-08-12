@@ -17,9 +17,8 @@ const TOOLS = [
   {
     name: "cerca_eventi",
     description:
-      "Cerca eventi (feste, sagre, mercatini, concerti, ecc.) pubblicati su fomoas. " +
-      "Puoi filtrare per parola chiave, categoria, luogo e/o data. Restituisce solo " +
-      "eventi verificati quando possibile, altrimenti tutti gli eventi corrispondenti.",
+      "Cerca eventi (feste, sagre, mercatini, concerti, ecc.) pubblicati e verificati su fomoas. " +
+      "Puoi filtrare per parola chiave, categoria, luogo e/o data.",
     inputSchema: {
       type: "object",
       properties: {
@@ -50,7 +49,12 @@ const TOOLS = [
 ];
 
 async function cercaEventi(args = {}) {
-  let q = supabase.from("eventi").select("*").order("data", { ascending: true }).limit(30);
+  let q = supabase
+    .from("eventi")
+    .select("*")
+    .eq("verificato", true)
+    .order("data", { ascending: true })
+    .limit(30);
 
   if (args.categoria) q = q.eq("categoria", args.categoria);
   if (args.luogo) q = q.ilike("luogo", `%${args.luogo}%`);
