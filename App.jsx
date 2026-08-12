@@ -98,11 +98,8 @@ export default function App() {
     fetchEvents();
   }
 
-  async function handleReport(id, currentReports) {
-    const { error } = await supabase
-      .from("eventi")
-      .update({ reports: (currentReports || 0) + 1 })
-      .eq("id", id);
+  async function handleReport(id) {
+    const { error } = await supabase.rpc("segnala_evento", { event_id: id });
     if (!error) {
       setToast({ type: "info", msg: "Segnalazione registrata. Grazie per la verifica." });
       setTimeout(() => setToast(null), 3000);
@@ -221,7 +218,7 @@ export default function App() {
                     <LinkIcon size={12} /> Fonte
                   </a>
                   <button
-                    onClick={() => handleReport(e.id, e.reports)}
+                    onClick={() => handleReport(e.id)}
                     className="inline-flex items-center gap-1 text-[#8A2E2E] hover:underline"
                   >
                     <Flag size={12} /> Segnala {e.reports > 0 ? `(${e.reports})` : ""}

@@ -59,9 +59,20 @@ Bacheca eventi con form di pubblicazione, verifica base e ricerca/filtri.
 3. Vai dal tuo registrar (dove hai comprato il dominio) → sezione gestione DNS → inserisci i record indicati da Vercel.
 4. La propagazione può richiedere da pochi minuti a qualche ora.
 
+## 5. Attiva il pannello admin
+
+1. Nell'SQL Editor di Supabase, apri **una nuova query**, incolla tutto il contenuto del file `supabase_admin_setup.sql` incluso in questo progetto → **Run**.
+   Questo aggiorna le regole di sicurezza: da ora solo un utente autenticato può approvare o eliminare eventi (prima chiunque poteva modificarli).
+2. Crea il tuo account amministratore: su Supabase vai su **Authentication → Users → Add user**. Inserisci la tua email e una password sicura. Lascia "Auto Confirm User" attivo, così non serve confermare via email.
+3. Se hai già pubblicato il sito su Vercel, ripeti il deploy (basta un nuovo `git push`) perché venga applicato il file `vercel.json` incluso — serve a far funzionare correttamente l'indirizzo `/admin`.
+4. Vai su `https://tuodominio.com/admin` (o `http://localhost:5173/admin` in locale) e accedi con l'email e la password create al passo 2.
+
+Da lì puoi vedere tutti gli eventi, filtrarli (da verificare / verificati / segnalati / tutti), approvarli (attiva il badge "Verificato" sul sito pubblico) o eliminarli.
+
+**Non condividere mai queste credenziali** e non aggiungere altri utenti su Supabase se non ti fidi di chi li userà: chiunque acceda a `/admin` con quelle credenziali può cancellare qualsiasi evento.
+
 ## Cosa manca ancora (fasi successive)
 
 - Verifica reale via OTP di email/telefono (oggi è solo controllo di formato)
-- Pannello admin per approvare eventi ed esaminare le segnalazioni
 - Server MCP per l'accesso diretto delle IA al contenitore
 - Generazione automatica di pagina evento (testo + immagini) e pubblicazione sui social
