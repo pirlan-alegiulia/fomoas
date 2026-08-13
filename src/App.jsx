@@ -546,10 +546,26 @@ export default function App() {
       sendChatMessage(transcript);
     };
     recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onerror = (event) => {
+      setListening(false);
+      const messaggi = {
+        "not-allowed": "Permesso microfono negato. Consentilo nelle impostazioni del browser.",
+        "service-not-allowed": "Permesso microfono negato. Consentilo nelle impostazioni del browser.",
+        "no-speech": "Non ho sentito nulla, riprova.",
+        "audio-capture": "Nessun microfono trovato.",
+        network: "Problema di rete durante il riconoscimento vocale.",
+      };
+      setToast({ type: "error", msg: messaggi[event.error] || "Microfono non disponibile: " + event.error });
+      setTimeout(() => setToast(null), 4000);
+    };
     recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
+    try {
+      recognition.start();
+      setListening(true);
+    } catch (err) {
+      setToast({ type: "error", msg: "Impossibile avviare il microfono: " + err.message });
+      setTimeout(() => setToast(null), 4000);
+    }
   }
 
   function trovaEventiVicino() {
@@ -581,7 +597,7 @@ export default function App() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ luogo }),
-            signal: AbortSignal.timeout(55000),
+            signal: AbortSignal.timeout(90000),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Errore nella ricerca");
@@ -782,7 +798,7 @@ export default function App() {
             {nearbyLoading && (
               <div className="mb-5 flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-sm">
                 <LocateFixed size={14} className="animate-pulse" />
-                Sto cercando eventi sul web vicino a te, può richiedere fino a un minuto...
+                Sto cercando eventi sul web vicino a te, può richiedere fino a un minuto e mezzo...
               </div>
             )}
             {aiEventIds !== null && (

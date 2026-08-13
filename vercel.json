@@ -3,5 +3,10 @@
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/admin/(.*)", "destination": "/index.html" },
     { "source": "/policy", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/eventi-vicino-a-me.js": {
+      "maxDuration": 60
+    }
+  }
 }
