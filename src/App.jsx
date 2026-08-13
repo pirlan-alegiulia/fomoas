@@ -532,6 +532,28 @@ export default function App() {
               </select>
               <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF7E04] pointer-events-none" />
             </div>
+            <div className="relative">
+              <button
+                onClick={() => setChatOpen((o) => !o)}
+                className={`h-full w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+                  chatOpen ? "bg-white text-[#00AEEF]" : "bg-[#00AEEF] text-white hover:bg-[#0C9FDA]"
+                }`}
+              >
+                {chatOpen ? <X size={16} /> : <MessageCircle size={16} />}
+                Chiedi all'IA
+              </button>
+              <AiChatPanel
+                open={chatOpen}
+                messages={chatMessages}
+                input={chatInput}
+                setInput={setChatInput}
+                onSend={() => sendChatMessage()}
+                loading={chatLoading}
+                listening={listening}
+                onToggleMic={toggleListening}
+                micSupported={speechSupported}
+              />
+            </div>
           </div>
 
           <main className="py-8">
@@ -668,19 +690,6 @@ export default function App() {
           {toast.msg}
         </div>
       )}
-
-      <AiChatWidget
-        open={chatOpen}
-        onToggle={() => setChatOpen((o) => !o)}
-        messages={chatMessages}
-        input={chatInput}
-        setInput={setChatInput}
-        onSend={() => sendChatMessage()}
-        loading={chatLoading}
-        listening={listening}
-        onToggleMic={toggleListening}
-        micSupported={speechSupported}
-      />
     </div>
   );
 }
@@ -1000,9 +1009,8 @@ function inputCls(error) {
   } rounded-lg px-3.5 py-2.5 text-sm text-[#102937] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#FF7E04]`;
 }
 
-function AiChatWidget({
+function AiChatPanel({
   open,
-  onToggle,
   messages,
   input,
   setInput,
@@ -1019,84 +1027,74 @@ function AiChatWidget({
     scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading, open]);
 
+  if (!open) return null;
+
   return (
-    <>
-      <button
-        onClick={onToggle}
-        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-[#00AEEF] text-white shadow-xl flex items-center justify-center hover:bg-[#0C9FDA] transition-colors"
-        aria-label="Assistente IA per la ricerca"
-      >
-        {open ? <X size={22} /> : <MessageCircle size={22} />}
-      </button>
+    <div className="absolute right-0 top-full mt-2 z-40 w-[calc(100vw-2.5rem)] sm:w-96 h-[28rem] bg-white text-[#102937] rounded-2xl shadow-2xl border border-[#E2E8F0] flex flex-col overflow-hidden">
+      <div className="bg-[#00AEEF] text-white px-4 py-3 flex items-center gap-2 shrink-0">
+        <Sparkles size={16} />
+        <h3 className="font-display font-semibold text-sm">Non sai cosa cercare? Chiedimelo</h3>
+      </div>
 
-      {open && (
-        <div className="fixed bottom-24 right-5 z-40 w-[calc(100vw-2.5rem)] max-w-sm h-[28rem] bg-white text-[#102937] rounded-2xl shadow-2xl border border-[#E2E8F0] flex flex-col overflow-hidden">
-          <div className="bg-[#00AEEF] text-white px-4 py-3 flex items-center gap-2 shrink-0">
-            <Sparkles size={16} />
-            <h3 className="font-display font-semibold text-sm">Non sai cosa cercare? Chiedimelo</h3>
-          </div>
-
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.length === 0 && (
-              <p className="text-xs text-[#64748B]">
-                Prova a chiedere ad esempio "cosa c'è stasera con i bambini?" oppure "eventi gratis vicino a Modena"
-                {micSupported ? " — oppure premi il microfono e parlami." : "."}
-              </p>
-            )}
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
-                    m.role === "user" ? "bg-[#FF7E04] text-white" : "bg-[#F1F5F9] text-[#102937]"
-                  }`}
-                >
-                  {m.content}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-[#F1F5F9] text-[#64748B] rounded-xl px-3 py-2 text-sm">Sto cercando...</div>
-              </div>
-            )}
-          </div>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              onSend();
-            }}
-            className="border-t border-[#E2E8F0] p-3 flex items-center gap-2 shrink-0"
-          >
-            {micSupported && (
-              <button
-                type="button"
-                onClick={onToggleMic}
-                className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                  listening ? "bg-[#FF5252] text-white" : "bg-[#F1F5F9] text-[#00AEEF] hover:bg-[#E2E8F0]"
-                }`}
-                aria-label={listening ? "Ferma ascolto" : "Parla con l'assistente"}
-              >
-                {listening ? <MicOff size={16} /> : <Mic size={16} />}
-              </button>
-            )}
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={listening ? "Ti ascolto..." : "Scrivi o parla..."}
-              className="flex-1 min-w-0 bg-[#F1F5F9] rounded-full px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="shrink-0 w-9 h-9 rounded-full bg-[#FF7E04] text-white flex items-center justify-center disabled:opacity-40"
-              aria-label="Invia"
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {messages.length === 0 && (
+          <p className="text-xs text-[#64748B]">
+            Prova a chiedere ad esempio "cosa c'è stasera con i bambini?" oppure "eventi gratis vicino a Modena"
+            {micSupported ? " — oppure premi il microfono e parlami." : "."}
+          </p>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div
+              className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
+                m.role === "user" ? "bg-[#FF7E04] text-white" : "bg-[#F1F5F9] text-[#102937]"
+              }`}
             >
-              <Send size={15} />
-            </button>
-          </form>
-        </div>
-      )}
-    </>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-[#F1F5F9] text-[#64748B] rounded-xl px-3 py-2 text-sm">Sto cercando...</div>
+          </div>
+        )}
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSend();
+        }}
+        className="border-t border-[#E2E8F0] p-3 flex items-center gap-2 shrink-0"
+      >
+        {micSupported && (
+          <button
+            type="button"
+            onClick={onToggleMic}
+            className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+              listening ? "bg-[#FF5252] text-white" : "bg-[#F1F5F9] text-[#00AEEF] hover:bg-[#E2E8F0]"
+            }`}
+            aria-label={listening ? "Ferma ascolto" : "Parla con l'assistente"}
+          >
+            {listening ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
+        )}
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={listening ? "Ti ascolto..." : "Scrivi o parla..."}
+          className="flex-1 min-w-0 bg-[#F1F5F9] rounded-full px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+        />
+        <button
+          type="submit"
+          disabled={loading || !input.trim()}
+          className="shrink-0 w-9 h-9 rounded-full bg-[#FF7E04] text-white flex items-center justify-center disabled:opacity-40"
+          aria-label="Invia"
+        >
+          <Send size={15} />
+        </button>
+      </form>
+    </div>
   );
 }
