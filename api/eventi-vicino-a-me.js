@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       model: "claude-opus-5",
       max_tokens: 6000,
       output_config: { effort: "medium" },
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
       system:
         `Oggi e il ${oggi}. Cerca sul web eventi reali, attuali o futuri (sagre, concerti, mercatini, sport, mostre, ` +
         `vita notturna...) vicino al luogo indicato dall'utente, usando fonti come pagine di comuni/pro loco, giornali ` +
