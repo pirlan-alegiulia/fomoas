@@ -31,7 +31,7 @@ function loadGoogleMaps() {
       return;
     }
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places&language=it&region=IT&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places&language=it&region=IT`;
     script.async = true;
     script.onload = () => resolve(window.google);
     script.onerror = () => reject(new Error("Impossibile caricare Google Maps"));
