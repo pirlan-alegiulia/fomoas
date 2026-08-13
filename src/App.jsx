@@ -16,6 +16,7 @@ import {
   Mic,
   MicOff,
   Send,
+  LocateFixed,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -169,6 +170,9 @@ export default function App() {
   const recognitionRef = useRef(null);
   const speechSupported =
     typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const [nearbyEvents, setNearbyEvents] = useState(null);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyLuogo, setNearbyLuogo] = useState("");
 
   useEffect(() => {
     fetchEvents();
@@ -416,6 +420,51 @@ export default function App() {
     setListening(true);
   }
 
+  function trovaEventiVicino() {
+    if (!navigator.geolocation) {
+      setToast({ type: "error", msg: "Il tuo browser non supporta la geolocalizzazione." });
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    setNearbyLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          let luogo = `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
+          if (MAPBOX_TOKEN) {
+            const res = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_TOKEN}&types=place&language=it`
+            );
+            const data = await res.json();
+            luogo = data.features?.[0]?.text || luogo;
+          }
+          setNearbyLuogo(luogo);
+          const res = await fetch("/api/eventi-vicino-a-me", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ luogo }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Errore nella ricerca");
+          setNearbyEvents(data.eventi || []);
+        } catch (err) {
+          setToast({ type: "error", msg: "Ricerca non riuscita: " + err.message });
+          setTimeout(() => setToast(null), 4000);
+          setNearbyEvents(null);
+        } finally {
+          setNearbyLoading(false);
+        }
+      },
+      () => {
+        setNearbyLoading(false);
+        setToast({ type: "error", msg: "Permesso di localizzazione negato o non disponibile." });
+        setTimeout(() => setToast(null), 4000);
+      },
+      { timeout: 10000 }
+    );
+  }
+
   const filtered = useMemo(() => {
     if (aiEventIds !== null) {
       return events.filter((e) => aiEventIds.includes(e.id));
@@ -554,6 +603,14 @@ export default function App() {
                 micSupported={speechSupported}
               />
             </div>
+            <button
+              onClick={trovaEventiVicino}
+              disabled={nearbyLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold bg-white text-[#FF7E04] hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
+            >
+              <LocateFixed size={16} />
+              {nearbyLoading ? "Cerco..." : "Trova eventi vicino a me"}
+            </button>
           </div>
 
           <main className="py-8">
@@ -655,6 +712,48 @@ export default function App() {
                     </div>
                   </article>
                 ))}
+              </div>
+            )}
+
+            {nearbyEvents !== null && (
+              <div className="mt-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <LocateFixed size={15} />
+                  <h2 className="font-display text-base font-semibold">
+                    Altri eventi trovati sul web vicino a {nearbyLuogo}
+                  </h2>
+                </div>
+                <p className="text-xs text-white/70 mb-4">
+                  Non registrati su fomoas e non verificati da noi: controlla sempre la fonte prima di andarci.
+                </p>
+                {nearbyEvents.length === 0 ? (
+                  <p className="text-sm text-white/80">Non ho trovato eventi pertinenti in zona.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {nearbyEvents.map((e, i) => (
+                      <div
+                        key={i}
+                        className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm"
+                      >
+                        <p className="font-semibold leading-snug mb-1">{e.titolo}</p>
+                        <p className="text-xs text-white/75 mb-1">
+                          {e.data} · {e.luogo}
+                        </p>
+                        {e.descrizione && <p className="text-xs text-white/70 mb-2">{e.descrizione}</p>}
+                        {e.fonte && (
+                          <a
+                            href={e.fonte}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-white font-semibold hover:underline"
+                          >
+                            <LinkIcon size={11} /> Fonte
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </main>
