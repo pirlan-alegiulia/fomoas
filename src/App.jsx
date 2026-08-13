@@ -80,7 +80,7 @@ async function geocodeLuogo(luogo) {
   try {
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
       luogo
-    )}.json?access_token=${MAPBOX_TOKEN}&limit=1&language=it`;
+    )}.json?access_token=${MAPBOX_TOKEN}&limit=1&language=it&country=it`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
