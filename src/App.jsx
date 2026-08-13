@@ -12,6 +12,10 @@ import {
   ChevronDown,
   Sparkles,
   ImagePlus,
+  MessageCircle,
+  Mic,
+  MicOff,
+  Send,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -156,6 +160,15 @@ export default function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [aiEventIds, setAiEventIds] = useState(null);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef(null);
+  const speechSupported =
+    typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
   useEffect(() => {
     fetchEvents();
@@ -353,7 +366,60 @@ export default function App() {
     }
   }
 
+  async function sendChatMessage(testo) {
+    const content = (testo ?? chatInput).trim();
+    if (!content || chatLoading) return;
+    const nuoviMessaggi = [...chatMessages, { role: "user", content }];
+    setChatMessages(nuoviMessaggi);
+    setChatInput("");
+    setChatLoading(true);
+    try {
+      const res = await fetch("/api/assistente-ricerca", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: nuoviMessaggi }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Errore nella richiesta");
+      setChatMessages((m) => [...m, { role: "assistant", content: data.risposta }]);
+      setAiEventIds(Array.isArray(data.eventi) ? data.eventi : []);
+    } catch (err) {
+      setChatMessages((m) => [
+        ...m,
+        { role: "assistant", content: "Mi dispiace, non riesco a rispondere ora (" + err.message + ")." },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  }
+
+  function toggleListening() {
+    if (!speechSupported) return;
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "it-IT";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setChatInput(transcript);
+      sendChatMessage(transcript);
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  }
+
   const filtered = useMemo(() => {
+    if (aiEventIds !== null) {
+      return events.filter((e) => aiEventIds.includes(e.id));
+    }
     const queryWords = wordsOf(query);
     const queryStems = queryWords.map(stem);
     return events
@@ -365,7 +431,7 @@ export default function App() {
           .join(" ");
         return matchesQuery(haystack, queryWords, queryStems);
       });
-  }, [events, query, categoryFilter]);
+  }, [events, query, categoryFilter, aiEventIds]);
 
   // Suggerimenti mentre si digita: titoli, luoghi e categorie che combaciano
   // con la query (anche al plurale/singolare), utili quando la ricerca esatta non trova nulla
@@ -424,6 +490,7 @@ export default function App() {
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setShowSuggestions(true);
+                  setAiEventIds(null);
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
@@ -452,7 +519,10 @@ export default function App() {
             <div className="relative">
               <select
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setAiEventIds(null);
+                }}
                 className="appearance-none bg-white border border-white text-[#102937] rounded-xl pl-4 pr-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
               >
                 <option>Tutte</option>
@@ -465,6 +535,19 @@ export default function App() {
           </div>
 
           <main className="py-8">
+            {aiEventIds !== null && (
+              <div className="mb-5 flex items-center justify-between gap-3 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-sm">
+                <span className="inline-flex items-center gap-1.5">
+                  <Sparkles size={14} />
+                  {aiEventIds.length > 0
+                    ? `L'IA ha trovato ${aiEventIds.length} event${aiEventIds.length === 1 ? "o" : "i"} per te.`
+                    : "L'IA non ha trovato eventi pertinenti."}
+                </span>
+                <button onClick={() => setAiEventIds(null)} className="underline font-semibold shrink-0">
+                  Mostra tutti
+                </button>
+              </div>
+            )}
             {loading ? (
               <p className="text-white/80 text-sm">Caricamento eventi...</p>
             ) : loadError ? (
@@ -585,6 +668,19 @@ export default function App() {
           {toast.msg}
         </div>
       )}
+
+      <AiChatWidget
+        open={chatOpen}
+        onToggle={() => setChatOpen((o) => !o)}
+        messages={chatMessages}
+        input={chatInput}
+        setInput={setChatInput}
+        onSend={() => sendChatMessage()}
+        loading={chatLoading}
+        listening={listening}
+        onToggleMic={toggleListening}
+        micSupported={speechSupported}
+      />
     </div>
   );
 }
@@ -902,4 +998,105 @@ function inputCls(error) {
   return `w-full bg-white border ${
     error ? "border-[#DC2626]" : "border-white"
   } rounded-lg px-3.5 py-2.5 text-sm text-[#102937] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#FF7E04]`;
+}
+
+function AiChatWidget({
+  open,
+  onToggle,
+  messages,
+  input,
+  setInput,
+  onSend,
+  loading,
+  listening,
+  onToggleMic,
+  micSupported,
+}) {
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, loading, open]);
+
+  return (
+    <>
+      <button
+        onClick={onToggle}
+        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-[#00AEEF] text-white shadow-xl flex items-center justify-center hover:bg-[#0C9FDA] transition-colors"
+        aria-label="Assistente IA per la ricerca"
+      >
+        {open ? <X size={22} /> : <MessageCircle size={22} />}
+      </button>
+
+      {open && (
+        <div className="fixed bottom-24 right-5 z-40 w-[calc(100vw-2.5rem)] max-w-sm h-[28rem] bg-white text-[#102937] rounded-2xl shadow-2xl border border-[#E2E8F0] flex flex-col overflow-hidden">
+          <div className="bg-[#00AEEF] text-white px-4 py-3 flex items-center gap-2 shrink-0">
+            <Sparkles size={16} />
+            <h3 className="font-display font-semibold text-sm">Non sai cosa cercare? Chiedimelo</h3>
+          </div>
+
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            {messages.length === 0 && (
+              <p className="text-xs text-[#64748B]">
+                Prova a chiedere ad esempio "cosa c'è stasera con i bambini?" oppure "eventi gratis vicino a Modena"
+                {micSupported ? " — oppure premi il microfono e parlami." : "."}
+              </p>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
+                    m.role === "user" ? "bg-[#FF7E04] text-white" : "bg-[#F1F5F9] text-[#102937]"
+                  }`}
+                >
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-[#F1F5F9] text-[#64748B] rounded-xl px-3 py-2 text-sm">Sto cercando...</div>
+              </div>
+            )}
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSend();
+            }}
+            className="border-t border-[#E2E8F0] p-3 flex items-center gap-2 shrink-0"
+          >
+            {micSupported && (
+              <button
+                type="button"
+                onClick={onToggleMic}
+                className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                  listening ? "bg-[#FF5252] text-white" : "bg-[#F1F5F9] text-[#00AEEF] hover:bg-[#E2E8F0]"
+                }`}
+                aria-label={listening ? "Ferma ascolto" : "Parla con l'assistente"}
+              >
+                {listening ? <MicOff size={16} /> : <Mic size={16} />}
+              </button>
+            )}
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={listening ? "Ti ascolto..." : "Scrivi o parla..."}
+              className="flex-1 min-w-0 bg-[#F1F5F9] rounded-full px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="shrink-0 w-9 h-9 rounded-full bg-[#FF7E04] text-white flex items-center justify-center disabled:opacity-40"
+              aria-label="Invia"
+            >
+              <Send size={15} />
+            </button>
+          </form>
+        </div>
+      )}
+    </>
+  );
 }
