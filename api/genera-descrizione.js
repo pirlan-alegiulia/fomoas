@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { titolo, categoria, luogo, data, organizzatore } = req.body || {};
+  const { titolo, categoria, luogo, data, organizzatore, bozza } = req.body || {};
 
   if (!titolo || !luogo) {
     res.status(400).json({ error: "Servono almeno titolo e luogo dell'evento." });
@@ -42,20 +42,28 @@ export default async function handler(req, res) {
     .filter(Boolean)
     .join("\n");
 
+  const bozzaPulita = (bozza || "").trim();
+  const userContent = bozzaPulita
+    ? `L'organizzatore ha scritto questa bozza di descrizione:\n"""${bozzaPulita}"""\n\n` +
+      `Elaborala e migliorala (stile, chiarezza, lunghezza) mantenendo il suo contenuto e intento originali, ` +
+      `senza inventare dettagli che non ha scritto. Dettagli evento:\n${dettagli}`
+    : `Scrivi la descrizione per questo evento:\n${dettagli}`;
+
   try {
     const message = await client.messages.create({
       model: "claude-opus-5",
       max_tokens: 300,
       output_config: { effort: "low" },
       system:
-        "Scrivi brevi descrizioni promozionali in italiano per eventi locali (sagre, concerti, mercatini...) " +
+        "Scrivi o migliori brevi descrizioni promozionali in italiano per eventi locali (sagre, concerti, mercatini...) " +
         "pubblicati su una bacheca di quartiere. Tono caldo e invitante ma sobrio, senza esagerazioni da marketing " +
-        "aggressivo, senza emoji, senza hashtag. Massimo 2-3 frasi. Rispondi SOLO con il testo della descrizione, " +
-        "senza titoli, virgolette o premesse.",
+        "aggressivo, senza emoji, senza hashtag. Massimo 2-3 frasi. Se ricevi una bozza scritta dall'organizzatore, " +
+        "elaborala e migliorala mantenendo il suo contenuto e intento, senza stravolgerla o inventare dettagli che " +
+        "non ha scritto. Rispondi SOLO con il testo della descrizione finale, senza titoli, virgolette o premesse.",
       messages: [
         {
           role: "user",
-          content: `Scrivi la descrizione per questo evento:\n${dettagli}`,
+          content: userContent,
         },
       ],
     });

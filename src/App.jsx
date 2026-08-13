@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   MapPin,
   Calendar,
@@ -17,6 +17,28 @@ import { supabase } from "./supabaseClient";
 
 const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+
+// Carica lo script di Google Maps (con la libreria Places) una sola volta,
+// anche se piu componenti PublishForm lo richiedono in parallelo
+let googleMapsPromise = null;
+function loadGoogleMaps() {
+  if (!GOOGLE_MAPS_KEY) return Promise.resolve(null);
+  if (googleMapsPromise) return googleMapsPromise;
+  googleMapsPromise = new Promise((resolve, reject) => {
+    if (window.google?.maps?.places) {
+      resolve(window.google);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places&language=it&region=IT&loading=async`;
+    script.async = true;
+    script.onload = () => resolve(window.google);
+    script.onerror = () => reject(new Error("Impossibile caricare Google Maps"));
+    document.head.appendChild(script);
+  });
+  return googleMapsPromise;
+}
 
 const PREFISSI_TEL = [
   { code: "+39", paese: "Italia" },
@@ -36,6 +58,8 @@ const emptyForm = {
   data: "",
   ora: "",
   luogo: "",
+  placeLat: null,
+  placeLng: null,
   descrizione: "",
   gratuito: true,
   prezzo: "",
@@ -256,10 +280,17 @@ export default function App() {
       immagine_url = supabase.storage.from("eventi-immagini").getPublicUrl(path).data.publicUrl;
     }
 
-    // La mappa del luogo serve solo come fallback quando non c'e una foto caricata
-    const coords = immagine_url ? null : await geocodeLuogo(form.luogo);
+    // La mappa del luogo serve solo come fallback quando non c'e una foto caricata.
+    // Se il luogo e stato scelto dal suggerimento Google Maps abbiamo gia le coordinate
+    // esatte, altrimenti proviamo a geocodificare il testo inserito manualmente
+    const hasPlaceCoords = Number.isFinite(form.placeLat) && Number.isFinite(form.placeLng);
+    const coords = immagine_url
+      ? null
+      : hasPlaceCoords
+      ? { lat: form.placeLat, lng: form.placeLng }
+      : await geocodeLuogo(form.luogo);
 
-    const { prefissoTel, telefono, ...restForm } = form;
+    const { prefissoTel, telefono, placeLat, placeLng, ...restForm } = form;
     const { error } = await supabase.from("eventi").insert([
       {
         ...restForm,
@@ -299,6 +330,7 @@ export default function App() {
           luogo: form.luogo,
           data: form.data,
           organizzatore: form.organizzatore,
+          bozza: form.descrizione,
         }),
       });
       const data = await res.json();
@@ -569,6 +601,41 @@ function PublishForm({
   submitting,
   onSubmit,
 }) {
+  const luogoInputRef = useRef(null);
+
+  // Collega il campo Luogo ai suggerimenti reali di Google Maps (se la chiave e configurata)
+  useEffect(() => {
+    let listener;
+    let cancelled = false;
+    loadGoogleMaps()
+      .then((google) => {
+        if (cancelled || !google || !luogoInputRef.current) return;
+        const autocomplete = new google.maps.places.Autocomplete(luogoInputRef.current, {
+          componentRestrictions: { country: "it" },
+          fields: ["name", "formatted_address", "geometry"],
+        });
+        listener = autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
+          if (!place.geometry?.location) return;
+          const testo =
+            place.name && place.formatted_address && !place.formatted_address.startsWith(place.name)
+              ? `${place.name}, ${place.formatted_address}`
+              : place.formatted_address || place.name || "";
+          setForm((f) => ({
+            ...f,
+            luogo: testo,
+            placeLat: place.geometry.location.lat(),
+            placeLng: place.geometry.location.lng(),
+          }));
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (listener) listener.remove();
+    };
+  }, [setForm]);
+
   return (
     <form onSubmit={onSubmit} className="p-6 space-y-4">
       <Field label="Titolo evento" error={errors.titolo}>
@@ -613,10 +680,12 @@ function PublishForm({
 
       <Field label="Luogo" error={errors.luogo}>
         <input
+          ref={luogoInputRef}
           value={form.luogo}
-          onChange={(e) => setForm({ ...form, luogo: e.target.value })}
+          onChange={(e) => setForm({ ...form, luogo: e.target.value, placeLat: null, placeLng: null })}
           className={inputCls(errors.luogo)}
           placeholder="Piazza Garibaldi, Modena"
+          autoComplete="off"
         />
       </Field>
 
@@ -683,14 +752,19 @@ function PublishForm({
             disabled={aiLoading || !form.titolo.trim() || !form.luogo.trim()}
             className="text-[11px] font-semibold text-white bg-white/15 hover:bg-white/25 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1 rounded-full transition-colors inline-flex items-center gap-1"
           >
-            <Sparkles size={12} /> {aiLoading ? "Generazione..." : "Genera con IA"}
+            <Sparkles size={12} />
+            {aiLoading
+              ? "Elaborazione..."
+              : form.descrizione.trim()
+              ? "Migliora con IA"
+              : "Genera con IA"}
           </button>
         </div>
         <textarea
           value={form.descrizione}
           onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
           className={inputCls() + " min-h-[70px]"}
-          placeholder="Due righe su cosa succede, oppure genera una bozza con l'IA"
+          placeholder="Scrivi una bozza e lascia che l'IA la elabori, oppure genera un testo da zero"
         />
       </label>
 
