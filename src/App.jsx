@@ -109,6 +109,10 @@ function staticMapUrl(lat, lng) {
   return `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+FF7E04(${lng},${lat})/${lng},${lat},13,0/640x400@2x?access_token=${MAPBOX_TOKEN}`;
 }
 
+function googleMapsUrl(luogo) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(luogo)}`;
+}
+
 function eventImageUrl(e) {
   return e.immagine_url || staticMapUrl(e.luogo_lat, e.luogo_lng) || "/event-placeholder.png";
 }
@@ -483,7 +487,15 @@ export default function App() {
                           )}
                         </p>
                         <p className="flex items-center gap-1.5">
-                          <MapPin size={13} /> {e.luogo}
+                          <MapPin size={13} />
+                          <a
+                            href={googleMapsUrl(e.luogo)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            {e.luogo}
+                          </a>
                         </p>
                       </div>
                       {e.descrizione && <p className="text-sm text-white/85 mb-3 leading-relaxed">{e.descrizione}</p>}
