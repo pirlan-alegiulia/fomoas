@@ -1342,14 +1342,55 @@ function PublishForm({
 }
 
 function LoginBox({ email, setEmail, onSend, sending, sent }) {
+  const [codice, setCodice] = useState("");
+  const [verificando, setVerificando] = useState(false);
+  const [erroreCodice, setErroreCodice] = useState("");
+
+  async function verificaCodice(ev) {
+    ev.preventDefault();
+    if (!codice.trim()) return;
+    setVerificando(true);
+    setErroreCodice("");
+    const { error } = await supabase.auth.verifyOtp({ email, token: codice.trim(), type: "email" });
+    setVerificando(false);
+    if (error) setErroreCodice("Codice non valido o scaduto. Riprova o richiedi un nuovo link.");
+  }
+
   if (sent) {
     return (
-      <div className="p-6 text-sm text-white/90 space-y-2">
-        <p className="font-semibold">Controlla la tua email</p>
-        <p>
-          Ti abbiamo inviato un link di accesso a <strong>{email}</strong>. Aprilo per accedere e pubblicare il tuo
-          evento.
-        </p>
+      <div className="p-6 text-sm text-white/90 space-y-3">
+        <div>
+          <p className="font-semibold">Controlla la tua email</p>
+          <p>
+            Ti abbiamo inviato un link di accesso a <strong>{email}</strong>. Aprilo per accedere e pubblicare il
+            tuo evento.
+          </p>
+        </div>
+        <div className="pt-2 border-t border-white/25">
+          <p className="text-xs text-white/80 mb-2">
+            Il link non funziona (capita spesso con Apple Mail su iPhone)? Nella stessa email trovi anche un
+            codice a 6 cifre: inseriscilo qui.
+          </p>
+          <form onSubmit={verificaCodice} className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={codice}
+              onChange={(e) => setCodice(e.target.value.replace(/\D/g, ""))}
+              placeholder="123456"
+              className="flex-1 min-w-0 bg-white border border-white text-[#102937] rounded-xl px-3.5 py-2.5 text-sm text-center tracking-[0.3em] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+            />
+            <button
+              type="submit"
+              disabled={verificando}
+              className="shrink-0 bg-white text-[#FF7E04] font-semibold px-4 py-2.5 rounded-xl hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
+            >
+              {verificando ? "..." : "Verifica"}
+            </button>
+          </form>
+          {erroreCodice && <p className="text-xs text-red-100 bg-red-500/30 rounded-lg px-2.5 py-1.5 mt-2">{erroreCodice}</p>}
+        </div>
       </div>
     );
   }
