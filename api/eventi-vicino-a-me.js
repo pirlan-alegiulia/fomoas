@@ -1,10 +1,13 @@
 // Cerca sul web eventi reali vicino a un luogo, per gli eventi non
-// registrati su fomoas. Usa lo strumento di ricerca web di Claude.
-// Endpoint: POST /api/eventi-vicino-a-me
+// registrati su fomoas. Usa lo strumento di ricerca web di Claude per
+// trovare i candidati, poi li geocodifica e li ordina per distanza reale
+// (l'IA non puo' calcolare distanze precise in modo affidabile).
+// Endpoint: POST /api/eventi-vicino-a-me { luogo, lat, lng, raggioKm? }
 
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const MAPBOX_TOKEN = process.env.VITE_MAPBOX_TOKEN;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -24,11 +27,13 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { luogo } = req.body || {};
+  const { luogo, lat, lng, raggioKm } = req.body || {};
   if (!luogo || !luogo.trim()) {
     res.status(400).json({ error: "Serve un luogo." });
     return;
   }
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+  const raggio = Number.isFinite(raggioKm) && raggioKm > 0 ? raggioKm : 50;
 
   const oggi = new Date().toISOString().slice(0, 10);
 
@@ -40,17 +45,21 @@ export default async function handler(req, res) {
       tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
       system:
         `Oggi e il ${oggi}. Cerca sul web eventi reali, attuali o futuri (sagre, concerti, mercatini, sport, mostre, ` +
-        `vita notturna...) vicino al luogo indicato dall'utente, usando fonti come pagine di comuni/pro loco, giornali ` +
-        `locali, pagine social pubbliche o siti di eventi. Non inventare mai eventi che non hai trovato con la ricerca. ` +
-        `Quando hai finito di cercare, rispondi SOLO con un array JSON valido (nessun testo prima o dopo, nessun blocco ` +
-        `di codice), con al massimo 8 eventi, ciascuno con questa forma esatta: ` +
-        `{"titolo": string, "data": string leggibile es. "15 settembre 2026" o "info non trovata", "luogo": string, ` +
-        `"descrizione": string breve (max 20 parole), "fonte": string url della pagina dove l'hai trovato}. ` +
-        `Se non trovi nulla di pertinente e verificabile, rispondi con un array vuoto [].`,
+        `vita notturna...) entro circa ${raggio} km dal luogo indicato dall'utente, usando fonti come pagine di ` +
+        `comuni/pro loco, giornali locali, pagine social pubbliche o siti di eventi. Non inventare mai eventi che ` +
+        `non hai trovato con la ricerca. Includi nel campo "luogo" di ogni evento il nome del comune/paese preciso ` +
+        `(non solo un quartiere generico), serve per calcolarne la distanza. Quando hai finito di cercare, rispondi ` +
+        `SOLO con un array JSON valido (nessun testo prima o dopo, nessun blocco di codice), con al massimo 16 ` +
+        `eventi, ciascuno con questa forma esatta: {"titolo": string, "data": string leggibile es. "15 settembre ` +
+        `2026" o "info non trovata", "luogo": string (comune preciso), "descrizione": string breve (max 20 parole), ` +
+        `"fonte": string url della pagina dove l'hai trovato}. Se non trovi nulla di pertinente e verificabile, ` +
+        `rispondi con un array vuoto [].`,
       messages: [
         {
           role: "user",
-          content: `Trova eventi vicino a: ${luogo}`,
+          content: hasCoords
+            ? `Trova eventi vicino a: ${luogo} (coordinate approssimative: ${lat}, ${lng})`
+            : `Trova eventi vicino a: ${luogo}`,
         },
       ],
     });
@@ -70,9 +79,50 @@ export default async function handler(req, res) {
     } catch {
       eventi = [];
     }
+    eventi = eventi.slice(0, 16);
 
-    res.status(200).json({ eventi: eventi.slice(0, 8), luogo });
+    if (hasCoords && MAPBOX_TOKEN && eventi.length > 0) {
+      const arricchiti = await Promise.all(
+        eventi.map(async (e) => {
+          const coord = await geocode(e.luogo, MAPBOX_TOKEN);
+          if (!coord) return null;
+          const distanza_km = haversineKm(lat, lng, coord.lat, coord.lng);
+          return { ...e, distanza_km: Math.round(distanza_km * 10) / 10 };
+        })
+      );
+      eventi = arricchiti
+        .filter((e) => e && e.distanza_km <= raggio)
+        .sort((a, b) => a.distanza_km - b.distanza_km);
+    }
+
+    res.status(200).json({ eventi, luogo });
   } catch (err) {
     res.status(500).json({ error: err.message || "Errore nella ricerca." });
   }
+}
+
+async function geocode(luogo, mapboxToken) {
+  if (!luogo) return null;
+  try {
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(luogo)}.json?access_token=${mapboxToken}&limit=1&country=it`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const [lngC, latC] = data.features?.[0]?.center || [];
+    return Number.isFinite(latC) && Number.isFinite(lngC) ? { lat: latC, lng: lngC } : null;
+  } catch {
+    return null;
+  }
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

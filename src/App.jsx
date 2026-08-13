@@ -175,6 +175,7 @@ export default function App() {
   const [nearbyEvents, setNearbyEvents] = useState(null);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyLuogo, setNearbyLuogo] = useState("");
+  const [nearbyVisibleCount, setNearbyVisibleCount] = useState(8);
   const [session, setSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
@@ -593,10 +594,11 @@ export default function App() {
             }
           }
           setNearbyLuogo(luogo);
+          setNearbyVisibleCount(8);
           const res = await fetch("/api/eventi-vicino-a-me", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ luogo }),
+            body: JSON.stringify({ luogo, lat: latitude, lng: longitude }),
             signal: AbortSignal.timeout(90000),
           });
           const data = await res.json();
@@ -911,35 +913,55 @@ export default function App() {
                   </h2>
                 </div>
                 <p className="text-xs text-white/70 mb-4">
-                  Non registrati su fomoas e non verificati da noi: controlla sempre la fonte prima di andarci.
+                  Non registrati su fomoas e non verificati da noi, entro 50 km, ordinati per distanza. Controlla
+                  sempre la fonte prima di andarci.
                 </p>
                 {nearbyEvents.length === 0 ? (
-                  <p className="text-sm text-white/80">Non ho trovato eventi pertinenti in zona.</p>
+                  <p className="text-sm text-white/80">Non ho trovato eventi pertinenti entro 50 km.</p>
                 ) : (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {nearbyEvents.map((e, i) => (
-                      <div
-                        key={i}
-                        className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm"
-                      >
-                        <p className="font-semibold leading-snug mb-1">{e.titolo}</p>
-                        <p className="text-xs text-white/75 mb-1">
-                          {e.data} · {e.luogo}
-                        </p>
-                        {e.descrizione && <p className="text-xs text-white/70 mb-2">{e.descrizione}</p>}
-                        {e.fonte && (
-                          <a
-                            href={e.fonte}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-white font-semibold hover:underline"
-                          >
-                            <LinkIcon size={11} /> Fonte
-                          </a>
-                        )}
+                  <>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {nearbyEvents.slice(0, nearbyVisibleCount).map((e, i) => (
+                        <div
+                          key={i}
+                          className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="font-semibold leading-snug">{e.titolo}</p>
+                            {Number.isFinite(e.distanza_km) && (
+                              <span className="shrink-0 text-[10px] tracking-wide uppercase bg-white/20 rounded-full px-2 py-0.5">
+                                {e.distanza_km < 1 ? "< 1 km" : `${e.distanza_km} km`}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-white/75 mb-1">
+                            {e.data} · {e.luogo}
+                          </p>
+                          {e.descrizione && <p className="text-xs text-white/70 mb-2">{e.descrizione}</p>}
+                          {e.fonte && (
+                            <a
+                              href={e.fonte}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-white font-semibold hover:underline"
+                            >
+                              <LinkIcon size={11} /> Fonte
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {nearbyVisibleCount < nearbyEvents.length && (
+                      <div className="flex justify-center mt-4">
+                        <button
+                          onClick={() => setNearbyVisibleCount((c) => c + 8)}
+                          className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors"
+                        >
+                          Continua
+                        </button>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

@@ -70,11 +70,11 @@ export default async function handler(req, res) {
 
   const oggi = new Date().toISOString().slice(0, 10);
   let conversation = messages.map((m) => ({ role: m.role, content: m.content }));
-  let foundEvents = [];
+  const foundEventsMap = new Map();
   let finalText = "";
 
   try {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       const response = await client.messages.create({
         model: "claude-opus-5",
         max_tokens: 500,
@@ -92,30 +92,33 @@ export default async function handler(req, res) {
       });
 
       if (response.stop_reason === "tool_use") {
-        const toolUse = response.content.find((b) => b.type === "tool_use");
+        // Il modello puo' chiamare lo strumento piu' volte nello stesso turno:
+        // ogni tool_use deve avere il proprio tool_result nel messaggio successivo,
+        // altrimenti l'API rifiuta la richiesta con un errore 400.
+        const toolUses = response.content.filter((b) => b.type === "tool_use");
         conversation.push({ role: "assistant", content: response.content });
-        const risultati = await cercaEventi(toolUse.input);
-        foundEvents = risultati;
-        conversation.push({
-          role: "user",
-          content: [
-            {
-              type: "tool_result",
-              tool_use_id: toolUse.id,
-              content: JSON.stringify(
-                risultati.map((e) => ({
-                  id: e.id,
-                  titolo: e.titolo,
-                  categoria: e.categoria,
-                  data: e.data,
-                  luogo: e.luogo,
-                  gratuito: e.gratuito,
-                  descrizione: e.descrizione,
-                }))
-              ),
-            },
-          ],
-        });
+
+        const toolResults = [];
+        for (const toolUse of toolUses) {
+          const risultati = await cercaEventi(toolUse.input);
+          risultati.forEach((e) => foundEventsMap.set(e.id, e));
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolUse.id,
+            content: JSON.stringify(
+              risultati.map((e) => ({
+                id: e.id,
+                titolo: e.titolo,
+                categoria: e.categoria,
+                data: e.data,
+                luogo: e.luogo,
+                gratuito: e.gratuito,
+                descrizione: e.descrizione,
+              }))
+            ),
+          });
+        }
+        conversation.push({ role: "user", content: toolResults });
         continue;
       }
 
@@ -129,7 +132,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       risposta: finalText || "Ecco cosa ho trovato per te.",
-      eventi: foundEvents.map((e) => e.id),
+      eventi: Array.from(foundEventsMap.values()).map((e) => e.id),
     });
   } catch (err) {
     res.status(500).json({ error: err.message || "Errore nella richiesta." });
