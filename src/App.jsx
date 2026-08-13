@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { MapPin, Calendar, Link as LinkIcon, Flag, ShieldCheck, Search, Plus, X, Clock, ChevronDown } from "lucide-react";
+import { MapPin, Calendar, Link as LinkIcon, Flag, ShieldCheck, Search, Plus, X, Clock, ChevronDown, Sparkles } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
 const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
@@ -71,6 +71,7 @@ export default function App() {
   const [categoryFilter, setCategoryFilter] = useState("Tutte");
   const [toast, setToast] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     fetchEvents();
@@ -184,6 +185,32 @@ export default function App() {
     setToast({ type: "success", msg: "Evento inviato. Sara visibile dopo una rapida verifica." });
     setTimeout(() => setToast(null), 4000);
     fetchEvents();
+  }
+
+  async function generaDescrizioneIA() {
+    if (!form.titolo.trim() || !form.luogo.trim()) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/genera-descrizione", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          titolo: form.titolo,
+          categoria: form.categoria,
+          luogo: form.luogo,
+          data: form.data,
+          organizzatore: form.organizzatore,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Errore nella generazione");
+      setForm((f) => ({ ...f, descrizione: data.descrizione }));
+    } catch (err) {
+      setToast({ type: "error", msg: "IA non disponibile: " + err.message });
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   async function handleReport(id) {
@@ -450,14 +477,25 @@ export default function App() {
                 {errors.prezzo && <span className="block text-xs text-[#FFE082] font-semibold mt-1">{errors.prezzo}</span>}
               </Field>
 
-              <Field label="Descrizione">
+              <label className="block">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-white/80">Descrizione</span>
+                  <button
+                    type="button"
+                    onClick={generaDescrizioneIA}
+                    disabled={aiLoading || !form.titolo.trim() || !form.luogo.trim()}
+                    className="text-[11px] font-semibold text-white bg-white/15 hover:bg-white/25 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1 rounded-full transition-colors inline-flex items-center gap-1"
+                  >
+                    <Sparkles size={12} /> {aiLoading ? "Generazione..." : "Genera con IA"}
+                  </button>
+                </div>
                 <textarea
                   value={form.descrizione}
                   onChange={(e) => setForm({ ...form, descrizione: e.target.value })}
                   className={inputCls() + " min-h-[70px]"}
-                  placeholder="Due righe su cosa succede"
+                  placeholder="Due righe su cosa succede, oppure genera una bozza con l'IA"
                 />
-              </Field>
+              </label>
 
               <div className="pt-2 border-t border-white/25">
                 <p className="text-xs text-white font-semibold mb-3">Dati per la verifica (non pubblicati integralmente)</p>
