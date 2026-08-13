@@ -1447,10 +1447,18 @@ function AiChatPanel({
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.length === 0 && (
-          <p className="text-xs text-[#64748B]">
-            Prova a chiedere ad esempio "cosa c'è stasera con i bambini?" oppure "eventi gratis vicino a Modena"
-            {micSupported ? " — oppure premi il microfono e parlami." : "."}
-          </p>
+          <>
+            <p className="text-xs text-[#64748B]">
+              Prova a chiedere ad esempio "cosa c'è stasera con i bambini?" oppure "eventi gratis vicino a Modena"
+              {micSupported ? " — oppure premi il microfono e parlami." : "."}
+            </p>
+            {!micSupported && (
+              <p className="text-xs text-[#94A3B8]">
+                Il microfono qui non è disponibile: su Safari e iPhone il browser non supporta ancora il
+                riconoscimento vocale. Funziona su Chrome (desktop e Android).
+              </p>
+            )}
+          </>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
