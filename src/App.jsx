@@ -433,23 +433,30 @@ export default function App() {
           const { latitude, longitude } = pos.coords;
           let luogo = `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
           if (MAPBOX_TOKEN) {
-            const res = await fetch(
-              `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_TOKEN}&types=place&language=it`
-            );
-            const data = await res.json();
-            luogo = data.features?.[0]?.text || luogo;
+            try {
+              const res = await fetch(
+                `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${MAPBOX_TOKEN}&types=place&language=it`,
+                { signal: AbortSignal.timeout(8000) }
+              );
+              const data = await res.json();
+              luogo = data.features?.[0]?.text || luogo;
+            } catch {
+              // Geocoding fallito o troppo lento: si prosegue con le coordinate grezze.
+            }
           }
           setNearbyLuogo(luogo);
           const res = await fetch("/api/eventi-vicino-a-me", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ luogo }),
+            signal: AbortSignal.timeout(55000),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Errore nella ricerca");
           setNearbyEvents(data.eventi || []);
         } catch (err) {
-          setToast({ type: "error", msg: "Ricerca non riuscita: " + err.message });
+          const msg = err.name === "TimeoutError" ? "la ricerca ha impiegato troppo tempo, riprova." : err.message;
+          setToast({ type: "error", msg: "Ricerca non riuscita: " + msg });
           setTimeout(() => setToast(null), 4000);
           setNearbyEvents(null);
         } finally {
