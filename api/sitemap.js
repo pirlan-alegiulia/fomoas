@@ -1,0 +1,27 @@
+// Genera la sitemap XML in tempo reale (homepage + una voce per ogni
+// evento verificato), cosi i crawler scoprono anche i permalink /evento/:id.
+
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+
+export default async function handler(req, res) {
+  const siteUrl = `https://${req.headers.host}`;
+
+  const { data: eventi } = await supabase
+    .from("eventi")
+    .select("id, created_at")
+    .eq("verificato", true);
+
+  const urls = [
+    `<url><loc>${siteUrl}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
+    ...(eventi || []).map((e) => {
+      const lastmod = new Date(e.created_at).toISOString().slice(0, 10);
+      return `<url><loc>${siteUrl}/evento/${e.id}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq></url>`;
+    }),
+  ].join("");
+
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=0, s-maxage=600");
+  res.status(200).end(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
+}

@@ -2,7 +2,9 @@
   "rewrites": [
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/admin/(.*)", "destination": "/index.html" },
-    { "source": "/policy", "destination": "/index.html" }
+    { "source": "/policy", "destination": "/index.html" },
+    { "source": "/evento/(.*)", "destination": "/index.html" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" }
   ],
   "functions": {
     "api/eventi-vicino-a-me.js": {
