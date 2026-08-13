@@ -34,6 +34,31 @@ function isValidUrl(v) {
   }
 }
 
+function normalize(str) {
+  return (str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+// Radice approssimata della parola, per far combaciare singolare e plurale
+// italiani (es. "sagra"/"sagre", "mercato"/"mercati") senza un vero stemmer
+function stem(word) {
+  return word.length > 4 && /[aeiou]$/.test(word) ? word.slice(0, -1) : word;
+}
+
+function wordsOf(text) {
+  return normalize(text).split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+function matchesQuery(text, queryWords, queryStems) {
+  const textWords = wordsOf(text);
+  return queryWords.every((qw, i) => {
+    const qs = queryStems[i];
+    return textWords.some((tw) => tw.includes(qw) || stem(tw) === qs);
+  });
+}
+
 export default function App() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +67,7 @@ export default function App() {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [query, setQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("Tutte");
   const [toast, setToast] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -170,18 +196,35 @@ export default function App() {
   }
 
   const filtered = useMemo(() => {
+    const queryWords = wordsOf(query);
+    const queryStems = queryWords.map(stem);
     return events
       .filter((e) => categoryFilter === "Tutte" || e.categoria === categoryFilter)
       .filter((e) => {
-        if (!query.trim()) return true;
-        const q = query.toLowerCase();
-        return (
-          (e.titolo || "").toLowerCase().includes(q) ||
-          (e.luogo || "").toLowerCase().includes(q) ||
-          (e.descrizione || "").toLowerCase().includes(q)
-        );
+        if (!queryWords.length) return true;
+        const haystack = [e.titolo, e.luogo, e.descrizione, e.categoria, e.organizzatore]
+          .filter(Boolean)
+          .join(" ");
+        return matchesQuery(haystack, queryWords, queryStems);
       });
   }, [events, query, categoryFilter]);
+
+  // Suggerimenti mentre si digita: titoli, luoghi e categorie che combaciano
+  // con la query (anche al plurale/singolare), utili quando la ricerca esatta non trova nulla
+  const suggestions = useMemo(() => {
+    const queryWords = wordsOf(query);
+    if (!queryWords.length) return [];
+    const queryStems = queryWords.map(stem);
+    const pool = new Set(CATEGORIES);
+    events.forEach((e) => {
+      if (e.titolo) pool.add(e.titolo);
+      if (e.luogo) pool.add(e.luogo);
+    });
+    return Array.from(pool)
+      .filter((term) => normalize(term) !== normalize(query))
+      .filter((term) => matchesQuery(term, queryWords, queryStems))
+      .slice(0, 6);
+  }, [events, query]);
 
   return (
     <div className="min-h-screen bg-[#12203D] text-[#F4EFE6]">
@@ -206,10 +249,33 @@ export default function App() {
             <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8FA0C4]" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Cerca per nome, luogo, tipo di evento..."
               className="w-full bg-[#1A2C4E] border border-[#2A3B60] rounded-xl pl-10 pr-4 py-3 text-sm placeholder-[#7186B0] focus:outline-none focus:ring-2 focus:ring-[#E8A33D]"
             />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1A2C4E] border border-[#2A3B60] rounded-xl overflow-hidden shadow-xl z-10">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setQuery(s);
+                      setShowSuggestions(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-[#F4EFE6] hover:bg-[#2A3B60] transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="relative">
             <select
