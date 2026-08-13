@@ -227,16 +227,16 @@ export default function App() {
   }, [events, query]);
 
   return (
-    <div className="min-h-screen bg-[#081E2B] text-[#F5ECDD]">
-      <header className="border-b border-[#224559] px-5 py-6 sm:px-8">
+    <div className="min-h-screen bg-[#FF7E04] text-white">
+      <header className="border-b border-white/25 px-5 py-6 sm:px-8">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs tracking-[0.2em] uppercase text-[#FF7E04] mb-1">fomoas</p>
+            <p className="text-xs tracking-[0.2em] uppercase text-white/80 mb-1">fomoas</p>
             <h1 className="font-display text-2xl sm:text-3xl font-semibold">Cosa si fa stasera?</h1>
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="shrink-0 inline-flex items-center gap-2 bg-[#FF7E04] text-[#081E2B] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FF9A3D] transition-colors"
+            className="shrink-0 inline-flex items-center gap-2 bg-white text-[#FF7E04] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE8D1] transition-colors"
           >
             <Plus size={18} /> Pubblica evento
           </button>
@@ -246,7 +246,7 @@ export default function App() {
       <div className="max-w-5xl mx-auto px-5 sm:px-8 mt-6">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#83A6B9]" />
+            <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FF7E04]" />
             <input
               value={query}
               onChange={(e) => {
@@ -256,10 +256,10 @@ export default function App() {
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Cerca per nome, luogo, tipo di evento..."
-              className="w-full bg-[#0D2D3F] border border-[#224559] rounded-xl pl-10 pr-4 py-3 text-sm placeholder-[#6E95AA] focus:outline-none focus:ring-2 focus:ring-[#FF7E04]"
+              className="w-full bg-white border border-white text-[#102937] rounded-xl pl-10 pr-4 py-3 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
             />
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#0D2D3F] border border-[#224559] rounded-xl overflow-hidden shadow-xl z-10">
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E2E8F0] rounded-xl overflow-hidden shadow-xl z-10">
                 {suggestions.map((s) => (
                   <button
                     key={s}
@@ -269,7 +269,7 @@ export default function App() {
                       setQuery(s);
                       setShowSuggestions(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-[#F5ECDD] hover:bg-[#224559] transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-[#102937] hover:bg-[#FFE8D1] transition-colors"
                   >
                     {s}
                   </button>
@@ -281,52 +281,52 @@ export default function App() {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="appearance-none bg-[#0D2D3F] border border-[#224559] rounded-xl pl-4 pr-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF7E04]"
+              className="appearance-none bg-white border border-white text-[#102937] rounded-xl pl-4 pr-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
             >
               <option>Tutte</option>
               {CATEGORIES.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
-            <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#83A6B9] pointer-events-none" />
+            <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF7E04] pointer-events-none" />
           </div>
         </div>
       </div>
 
       <main className="max-w-5xl mx-auto px-5 sm:px-8 py-8">
         {loading ? (
-          <p className="text-[#83A6B9] text-sm">Caricamento eventi...</p>
+          <p className="text-white/80 text-sm">Caricamento eventi...</p>
         ) : loadError ? (
-          <div className="text-center py-16 border border-dashed border-[#B4544A] rounded-2xl">
+          <div className="text-center py-16 border border-dashed border-white/50 rounded-2xl">
             <p className="font-display text-lg mb-1">Impossibile caricare gli eventi</p>
-            <p className="text-sm text-[#83A6B9]">{loadError} — controlla la connessione a Supabase nel file .env</p>
+            <p className="text-sm text-white/80">{loadError} — controlla la connessione a Supabase nel file .env</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-[#224559] rounded-2xl">
+          <div className="text-center py-16 border border-dashed border-white/50 rounded-2xl">
             <p className="font-display text-lg mb-1">La bacheca e ancora vuota qui</p>
-            <p className="text-sm text-[#83A6B9]">Pubblica il primo evento per iniziare a riempirla.</p>
+            <p className="text-sm text-white/80">Pubblica il primo evento per iniziare a riempirla.</p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-6">
             {filtered.map((e) => (
-              <article key={e.id} className="relative bg-[#FBF6EC] text-[#102937] rounded-sm shadow-lg p-5 pt-6">
+              <article key={e.id} className="relative bg-[#00AEEF] text-white rounded-sm shadow-lg p-5 pt-6">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] tracking-wider uppercase bg-[#081E2B] text-[#FF7E04] px-2 py-1 rounded-full">
+                    <span className="text-[10px] tracking-wider uppercase bg-white text-[#FF7E04] px-2 py-1 rounded-full">
                       {e.categoria}
                     </span>
-                    <span className="text-[10px] tracking-wider uppercase bg-[#E3D9C4] text-[#5B4636] px-2 py-1 rounded-full">
+                    <span className="text-[10px] tracking-wider uppercase bg-white text-[#0277BD] px-2 py-1 rounded-full">
                       {e.gratuito ? "Gratuito" : `€ ${Number(e.prezzo).toFixed(2)}`}
                     </span>
                   </div>
                   {e.verificato && (
-                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700">
+                    <span className="inline-flex items-center gap-1 text-[10px] text-[#00E676] font-semibold">
                       <ShieldCheck size={13} /> Verificato
                     </span>
                   )}
                 </div>
                 <h3 className="font-display text-lg font-semibold leading-snug mb-1">{e.titolo}</h3>
-                <div className="text-xs text-[#5B4636] space-y-1 mb-3">
+                <div className="text-xs text-white/85 space-y-1 mb-3">
                   <p className="flex items-center gap-1.5">
                     <Calendar size={13} />
                     {new Date(e.data).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
@@ -340,19 +340,19 @@ export default function App() {
                     <MapPin size={13} /> {e.luogo}
                   </p>
                 </div>
-                {e.descrizione && <p className="text-sm text-[#3A3128] mb-3 leading-relaxed">{e.descrizione}</p>}
-                <div className="flex items-center justify-between text-xs pt-3 border-t border-[#E3D9C4]">
+                {e.descrizione && <p className="text-sm text-white/85 mb-3 leading-relaxed">{e.descrizione}</p>}
+                <div className="flex items-center justify-between text-xs pt-3 border-t border-white/30">
                   <a
                     href={e.link_verifica}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[#C15D02] hover:underline"
+                    className="inline-flex items-center gap-1 text-white font-semibold hover:underline"
                   >
                     <LinkIcon size={12} /> Fonte
                   </a>
                   <button
                     onClick={() => handleReport(e.id)}
-                    className="inline-flex items-center gap-1 text-[#8A2E2E] hover:underline"
+                    className="inline-flex items-center gap-1 text-[#FF5252] hover:underline"
                   >
                     <Flag size={12} /> Segnala {e.reports > 0 ? `(${e.reports})` : ""}
                   </button>
@@ -365,10 +365,10 @@ export default function App() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-6">
-          <div className="bg-[#0D2D3F] border border-[#224559] w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#224559] sticky top-0 bg-[#0D2D3F]">
+          <div className="bg-[#00AEEF] text-white border border-white/25 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/25 sticky top-0 bg-[#00AEEF]">
               <h2 className="font-display text-lg font-semibold">Pubblica un evento</h2>
-              <button onClick={() => setShowForm(false)} className="text-[#83A6B9] hover:text-white">
+              <button onClick={() => setShowForm(false)} className="text-white/80 hover:text-white">
                 <X size={20} />
               </button>
             </div>
@@ -447,7 +447,7 @@ export default function App() {
                     placeholder="Prezzo in euro, es. 10"
                   />
                 )}
-                {errors.prezzo && <span className="block text-xs text-[#F0857A] mt-1">{errors.prezzo}</span>}
+                {errors.prezzo && <span className="block text-xs text-[#FFE082] font-semibold mt-1">{errors.prezzo}</span>}
               </Field>
 
               <Field label="Descrizione">
@@ -459,8 +459,8 @@ export default function App() {
                 />
               </Field>
 
-              <div className="pt-2 border-t border-[#224559]">
-                <p className="text-xs text-[#FF7E04] font-medium mb-3">Dati per la verifica (non pubblicati integralmente)</p>
+              <div className="pt-2 border-t border-white/25">
+                <p className="text-xs text-white font-semibold mb-3">Dati per la verifica (non pubblicati integralmente)</p>
 
                 <Field label="Chi organizza" error={errors.organizzatore}>
                   <input
@@ -503,7 +503,7 @@ export default function App() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-[#FF7E04] text-[#081E2B] font-semibold py-3 rounded-xl hover:bg-[#FF9A3D] transition-colors disabled:opacity-60"
+                className="w-full bg-white text-[#FF7E04] font-semibold py-3 rounded-xl hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
               >
                 {submitting ? "Invio in corso..." : "Invia per la verifica"}
               </button>
@@ -513,7 +513,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#0D2D3F] border border-[#224559] px-4 py-2.5 rounded-full text-sm shadow-xl">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#00AEEF] text-white border border-white/25 px-4 py-2.5 rounded-full text-sm font-semibold shadow-xl">
           {toast.msg}
         </div>
       )}
@@ -524,15 +524,15 @@ export default function App() {
 function Field({ label, error, children }) {
   return (
     <label className="block">
-      <span className="block text-xs text-[#83A6B9] mb-1.5">{label}</span>
+      <span className="block text-xs text-white/80 mb-1.5">{label}</span>
       {children}
-      {error && <span className="block text-xs text-[#F0857A] mt-1">{error}</span>}
+      {error && <span className="block text-xs text-[#FFE082] font-semibold mt-1">{error}</span>}
     </label>
   );
 }
 
 function inputCls(error) {
-  return `w-full bg-[#081E2B] border ${
-    error ? "border-[#B4544A]" : "border-[#224559]"
-  } rounded-lg px-3.5 py-2.5 text-sm text-[#F5ECDD] placeholder-[#4D7389] focus:outline-none focus:ring-2 focus:ring-[#FF7E04]`;
+  return `w-full bg-white border ${
+    error ? "border-[#DC2626]" : "border-white"
+  } rounded-lg px-3.5 py-2.5 text-sm text-[#102937] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#FF7E04]`;
 }
