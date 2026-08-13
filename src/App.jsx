@@ -18,6 +18,18 @@ import { supabase } from "./supabaseClient";
 const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
+const PREFISSI_TEL = [
+  { code: "+39", paese: "Italia" },
+  { code: "+378", paese: "San Marino" },
+  { code: "+41", paese: "Svizzera" },
+  { code: "+33", paese: "Francia" },
+  { code: "+49", paese: "Germania" },
+  { code: "+43", paese: "Austria" },
+  { code: "+34", paese: "Spagna" },
+  { code: "+44", paese: "Regno Unito" },
+  { code: "+1", paese: "USA/Canada" },
+];
+
 const emptyForm = {
   titolo: "",
   categoria: CATEGORIES[0],
@@ -29,6 +41,7 @@ const emptyForm = {
   prezzo: "",
   organizzatore: "",
   email: "",
+  prefissoTel: "+39",
   telefono: "",
   link_verifica: "",
 };
@@ -37,7 +50,7 @@ function isValidEmail(v) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
 function isValidPhone(v) {
-  return /^[+\d][\d\s]{6,}$/.test(v);
+  return /^\d{6,}$/.test((v || "").replace(/\s+/g, ""));
 }
 function isValidUrl(v) {
   try {
@@ -198,7 +211,7 @@ export default function App() {
     }
     if (!form.organizzatore.trim()) e.organizzatore = "Inserisci chi organizza";
     if (!isValidEmail(form.email)) e.email = "Email non valida";
-    if (!isValidPhone(form.telefono)) e.telefono = "Numero non valido (es. +39 333 1234567)";
+    if (!isValidPhone(form.telefono)) e.telefono = "Numero non valido (es. 333 1234567)";
     if (!isValidUrl(form.link_verifica)) e.link_verifica = "Serve un link valido (sito, pagina social, Maps...)";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -242,9 +255,11 @@ export default function App() {
     // La mappa del luogo serve solo come fallback quando non c'e una foto caricata
     const coords = immagine_url ? null : await geocodeLuogo(form.luogo);
 
+    const { prefissoTel, telefono, ...restForm } = form;
     const { error } = await supabase.from("eventi").insert([
       {
-        ...form,
+        ...restForm,
+        telefono: `${prefissoTel} ${telefono}`.trim(),
         ora: form.ora || null,
         prezzo: form.gratuito ? null : Number(form.prezzo),
         immagine_url,
@@ -679,7 +694,7 @@ function PublishForm({
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-3 mt-3">
+        <div className="space-y-3 mt-3">
           <Field label="Email" error={errors.email}>
             <input
               value={form.email}
@@ -689,12 +704,25 @@ function PublishForm({
             />
           </Field>
           <Field label="Telefono" error={errors.telefono}>
-            <input
-              value={form.telefono}
-              onChange={(e) => setForm({ ...form, telefono: e.target.value })}
-              className={inputCls(errors.telefono)}
-              placeholder="+39 333 1234567"
-            />
+            <div className="flex gap-2">
+              <select
+                value={form.prefissoTel}
+                onChange={(e) => setForm({ ...form, prefissoTel: e.target.value })}
+                className={inputCls() + " !w-32 shrink-0 truncate"}
+              >
+                {PREFISSI_TEL.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.code} {p.paese}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={form.telefono}
+                onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+                className={inputCls(errors.telefono) + " flex-1 min-w-0"}
+                placeholder="333 1234567"
+              />
+            </div>
           </Field>
         </div>
 
