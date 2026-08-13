@@ -602,39 +602,75 @@ function PublishForm({
   onSubmit,
 }) {
   const luogoInputRef = useRef(null);
+  const autocompleteServiceRef = useRef(null);
+  const placesServiceRef = useRef(null);
+  const sessionTokenRef = useRef(null);
+  const debounceRef = useRef(null);
+  const [placeSuggestions, setPlaceSuggestions] = useState([]);
+  const [showPlaceSuggestions, setShowPlaceSuggestions] = useState(false);
 
-  // Collega il campo Luogo ai suggerimenti reali di Google Maps (se la chiave e configurata)
+  // Prepara i servizi Google Places (il widget "Autocomplete" classico non e
+  // piu disponibile per i progetti nuovi, quindi costruiamo un dropdown
+  // personalizzato sopra ad AutocompleteService/PlacesService, che restano supportati)
   useEffect(() => {
-    let listener;
     let cancelled = false;
     loadGoogleMaps()
       .then((google) => {
-        if (cancelled || !google || !luogoInputRef.current) return;
-        const autocomplete = new google.maps.places.Autocomplete(luogoInputRef.current, {
-          componentRestrictions: { country: "it" },
-          fields: ["name", "formatted_address", "geometry"],
-        });
-        listener = autocomplete.addListener("place_changed", () => {
-          const place = autocomplete.getPlace();
-          if (!place.geometry?.location) return;
-          const testo =
-            place.name && place.formatted_address && !place.formatted_address.startsWith(place.name)
-              ? `${place.name}, ${place.formatted_address}`
-              : place.formatted_address || place.name || "";
-          setForm((f) => ({
-            ...f,
-            luogo: testo,
-            placeLat: place.geometry.location.lat(),
-            placeLng: place.geometry.location.lng(),
-          }));
-        });
+        if (cancelled || !google) return;
+        autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+        placesServiceRef.current = new google.maps.places.PlacesService(document.createElement("div"));
+        sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
       })
       .catch(() => {});
     return () => {
       cancelled = true;
-      if (listener) listener.remove();
+      clearTimeout(debounceRef.current);
     };
-  }, [setForm]);
+  }, []);
+
+  function handleLuogoChange(value) {
+    setForm((f) => ({ ...f, luogo: value, placeLat: null, placeLng: null }));
+    setShowPlaceSuggestions(true);
+    clearTimeout(debounceRef.current);
+    if (!autocompleteServiceRef.current || !value.trim()) {
+      setPlaceSuggestions([]);
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      autocompleteServiceRef.current.getPlacePredictions(
+        { input: value, componentRestrictions: { country: "it" }, sessionToken: sessionTokenRef.current },
+        (predictions, status) => {
+          setPlaceSuggestions(status === "OK" && predictions ? predictions : []);
+        }
+      );
+    }, 300);
+  }
+
+  function selectPlace(prediction) {
+    setShowPlaceSuggestions(false);
+    setPlaceSuggestions([]);
+    if (!placesServiceRef.current) return;
+    placesServiceRef.current.getDetails(
+      { placeId: prediction.place_id, fields: ["formatted_address", "name", "geometry"], sessionToken: sessionTokenRef.current },
+      (place, status) => {
+        sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+        if (status !== "OK" || !place?.geometry?.location) {
+          setForm((f) => ({ ...f, luogo: prediction.description }));
+          return;
+        }
+        const testo =
+          place.name && place.formatted_address && !place.formatted_address.startsWith(place.name)
+            ? `${place.name}, ${place.formatted_address}`
+            : place.formatted_address || place.name || prediction.description;
+        setForm((f) => ({
+          ...f,
+          luogo: testo,
+          placeLat: place.geometry.location.lat(),
+          placeLng: place.geometry.location.lng(),
+        }));
+      }
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="p-6 space-y-4">
@@ -679,14 +715,33 @@ function PublishForm({
       </Field>
 
       <Field label="Luogo" error={errors.luogo}>
-        <input
-          ref={luogoInputRef}
-          value={form.luogo}
-          onChange={(e) => setForm({ ...form, luogo: e.target.value, placeLat: null, placeLng: null })}
-          className={inputCls(errors.luogo)}
-          placeholder="Piazza Garibaldi, Modena"
-          autoComplete="off"
-        />
+        <div className="relative">
+          <input
+            ref={luogoInputRef}
+            value={form.luogo}
+            onChange={(e) => handleLuogoChange(e.target.value)}
+            onFocus={() => setShowPlaceSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowPlaceSuggestions(false), 150)}
+            className={inputCls(errors.luogo)}
+            placeholder="Piazza Garibaldi, Modena"
+            autoComplete="off"
+          />
+          {showPlaceSuggestions && placeSuggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E2E8F0] rounded-xl overflow-hidden shadow-xl z-20 max-h-56 overflow-y-auto">
+              {placeSuggestions.map((s) => (
+                <button
+                  key={s.place_id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => selectPlace(s)}
+                  className="w-full text-left px-4 py-2 text-sm text-[#102937] hover:bg-[#FFE8D1] transition-colors"
+                >
+                  {s.description}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </Field>
 
       <Field label="Foto dell'evento (opzionale)">
