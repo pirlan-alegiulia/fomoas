@@ -80,6 +80,7 @@ export default async function handler(req, res) {
       eventi = [];
     }
     eventi = eventi.slice(0, 16);
+    const candidati = eventi;
 
     if (hasCoords && MAPBOX_TOKEN && eventi.length > 0) {
       const arricchiti = await Promise.all(
@@ -90,9 +91,14 @@ export default async function handler(req, res) {
           return { ...e, distanza_km: Math.round(distanza_km * 10) / 10 };
         })
       );
-      eventi = arricchiti
-        .filter((e) => e && e.distanza_km <= raggio)
-        .sort((a, b) => a.distanza_km - b.distanza_km);
+      const geocodificati = arricchiti.filter(Boolean);
+      // Se la geocodifica fallisce per tutti (es. problema temporaneo con Mapbox),
+      // meglio mostrare i candidati trovati dall'IA senza ordinamento che non
+      // mostrare nulla.
+      eventi =
+        geocodificati.length > 0
+          ? geocodificati.filter((e) => e.distanza_km <= raggio).sort((a, b) => a.distanza_km - b.distanza_km)
+          : candidati;
     }
 
     res.status(200).json({ eventi, luogo });
@@ -103,17 +109,25 @@ export default async function handler(req, res) {
 
 async function geocode(luogo, mapboxToken) {
   if (!luogo) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(luogo)}.json?access_token=${mapboxToken}&limit=1&country=it`,
-      { signal: AbortSignal.timeout(5000) }
+      { signal: controller.signal }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("Geocode fallito per", luogo, res.status, await res.text());
+      return null;
+    }
     const data = await res.json();
     const [lngC, latC] = data.features?.[0]?.center || [];
     return Number.isFinite(latC) && Number.isFinite(lngC) ? { lat: latC, lng: lngC } : null;
-  } catch {
+  } catch (err) {
+    console.error("Geocode errore per", luogo, err.message);
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
