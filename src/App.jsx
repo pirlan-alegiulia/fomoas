@@ -614,6 +614,12 @@ export default function App() {
           </div>
 
           <main className="py-8">
+            {nearbyLoading && (
+              <div className="mb-5 flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-sm">
+                <LocateFixed size={14} className="animate-pulse" />
+                Sto cercando eventi sul web vicino a te, può richiedere fino a un minuto...
+              </div>
+            )}
             {aiEventIds !== null && (
               <div className="mb-5 flex items-center justify-between gap-3 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-sm">
                 <span className="inline-flex items-center gap-1.5">
