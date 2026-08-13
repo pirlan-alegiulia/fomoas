@@ -17,6 +17,8 @@ import {
   MicOff,
   Send,
   LocateFixed,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -173,10 +175,122 @@ export default function App() {
   const [nearbyEvents, setNearbyEvents] = useState(null);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyLuogo, setNearbyLuogo] = useState("");
+  const [session, setSession] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authSending, setAuthSending] = useState(false);
+  const [authSent, setAuthSent] = useState(false);
+  const [policyAccettata, setPolicyAccettata] = useState(false);
+  const [myEvents, setMyEvents] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editingImageUrl, setEditingImageUrl] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthChecked(true);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    fetchMyEvents(session?.user?.id);
+  }, [session]);
+
+  async function fetchMyEvents(userId) {
+    if (!userId) {
+      setMyEvents([]);
+      return;
+    }
+    const { data } = await supabase
+      .from("eventi")
+      .select("*")
+      .eq("user_id", userId)
+      .order("data", { ascending: true });
+    setMyEvents(data || []);
+  }
+
+  async function sendMagicLink(email) {
+    setAuthSending(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setAuthSending(false);
+    if (error) {
+      setToast({ type: "error", msg: "Errore nell'invio dell'email: " + error.message });
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    setAuthSent(true);
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setAuthSent(false);
+    setAuthEmail("");
+    handleCancelEdit();
+  }
+
+  function handleEditClick(e) {
+    const prefissoMatch = PREFISSI_TEL.find((p) => e.telefono?.startsWith(p.code));
+    setEditingId(e.id);
+    setEditingImageUrl(e.immagine_url || null);
+    setForm({
+      titolo: e.titolo || "",
+      categoria: e.categoria || CATEGORIES[0],
+      data: e.data || "",
+      ora: e.ora || "",
+      luogo: e.luogo || "",
+      placeLat: e.luogo_lat ?? null,
+      placeLng: e.luogo_lng ?? null,
+      descrizione: e.descrizione || "",
+      gratuito: e.gratuito,
+      prezzo: e.prezzo != null ? String(e.prezzo) : "",
+      organizzatore: e.organizzatore || "",
+      email: e.email || "",
+      prefissoTel: prefissoMatch ? prefissoMatch.code : "+39",
+      telefono: prefissoMatch ? e.telefono.slice(prefissoMatch.code.length).trim() : e.telefono || "",
+      link_verifica: e.link_verifica || "",
+    });
+    setErrors({});
+    handleRemoveImage();
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleCancelEdit() {
+    setEditingId(null);
+    setEditingImageUrl(null);
+    setForm(emptyForm);
+    setErrors({});
+    handleRemoveImage();
+  }
+
+  async function handleDeleteMio(id) {
+    if (!window.confirm("Eliminare definitivamente questo evento?")) return;
+    setDeletingId(id);
+    const { error } = await supabase.from("eventi").delete().eq("id", id);
+    setDeletingId(null);
+    if (error) {
+      setToast({ type: "error", msg: "Errore nell'eliminazione: " + error.message });
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+    if (editingId === id) handleCancelEdit();
+    setToast({ type: "info", msg: "Evento eliminato." });
+    setTimeout(() => setToast(null), 3000);
+    fetchEvents();
+    fetchMyEvents(session?.user?.id);
+  }
 
   // Aggiorna i dati strutturati (Schema.org) ogni volta che la lista eventi cambia,
   // cosi Google e gli altri crawler possono leggere gli eventi come tali
@@ -258,6 +372,7 @@ export default function App() {
     if (!isValidEmail(form.email)) e.email = "Email non valida";
     if (!isValidPhone(form.telefono)) e.telefono = "Numero non valido (es. 333 1234567)";
     if (!isValidUrl(form.link_verifica)) e.link_verifica = "Serve un link valido (sito, pagina social, Maps...)";
+    if (!editingId && !policyAccettata) e.policy = "Devi accettare i termini e la privacy policy per pubblicare";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -278,10 +393,11 @@ export default function App() {
 
   async function handleSubmit(ev) {
     ev.preventDefault();
+    if (!session) return;
     if (!validate()) return;
     setSubmitting(true);
 
-    let immagine_url = null;
+    let immagine_url = editingId ? editingImageUrl : null;
     if (imageFile) {
       const ext = imageFile.name.split(".").pop();
       const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -308,30 +424,46 @@ export default function App() {
       : await geocodeLuogo(form.luogo);
 
     const { prefissoTel, telefono, placeLat, placeLng, ...restForm } = form;
-    const { error } = await supabase.from("eventi").insert([
-      {
-        ...restForm,
-        telefono: `${prefissoTel} ${telefono}`.trim(),
-        ora: form.ora || null,
-        prezzo: form.gratuito ? null : Number(form.prezzo),
-        immagine_url,
-        luogo_lat: coords?.lat ?? null,
-        luogo_lng: coords?.lng ?? null,
-        reports: 0,
-        verificato: false,
-      },
-    ]);
+    const payload = {
+      ...restForm,
+      telefono: `${prefissoTel} ${telefono}`.trim(),
+      ora: form.ora || null,
+      prezzo: form.gratuito ? null : Number(form.prezzo),
+      immagine_url,
+      luogo_lat: coords?.lat ?? null,
+      luogo_lng: coords?.lng ?? null,
+    };
+
+    const { error } = editingId
+      ? await supabase.from("eventi").update(payload).eq("id", editingId)
+      : await supabase.from("eventi").insert([
+          {
+            ...payload,
+            reports: 0,
+            verificato: false,
+            user_id: session.user.id,
+            policy_accettata_at: new Date().toISOString(),
+          },
+        ]);
     setSubmitting(false);
     if (error) {
       setToast({ type: "error", msg: "Errore nell'invio: " + error.message });
       return;
     }
+    const wasEditing = !!editingId;
     setForm(emptyForm);
     handleRemoveImage();
     setShowForm(false);
-    setToast({ type: "success", msg: "Evento inviato. Sara visibile dopo una rapida verifica." });
+    setEditingId(null);
+    setEditingImageUrl(null);
+    setPolicyAccettata(false);
+    setToast({
+      type: "success",
+      msg: wasEditing ? "Evento aggiornato." : "Evento inviato. Sara visibile dopo una rapida verifica.",
+    });
     setTimeout(() => setToast(null), 4000);
     fetchEvents();
+    fetchMyEvents(session.user.id);
   }
 
   async function generaDescrizioneIA() {
@@ -517,7 +649,30 @@ export default function App() {
     onRemoveImage: handleRemoveImage,
     submitting,
     onSubmit: handleSubmit,
+    editing: !!editingId,
+    onCancelEdit: handleCancelEdit,
+    policyAccettata,
+    setPolicyAccettata,
   };
+
+  const publishPanelContent = !authChecked ? (
+    <div className="p-6 text-sm text-white/80">Caricamento...</div>
+  ) : session ? (
+    <>
+      <div className="flex items-center justify-between px-6 pt-4 text-xs text-white/80">
+        <span className="truncate">Accesso come {session.user.email}</span>
+        <button onClick={signOut} className="underline font-semibold shrink-0 ml-2">
+          Esci
+        </button>
+      </div>
+      <PublishForm {...formProps} />
+      {myEvents.length > 0 && (
+        <MyEventsList events={myEvents} onEdit={handleEditClick} onDelete={handleDeleteMio} deletingId={deletingId} />
+      )}
+    </>
+  ) : (
+    <LoginBox email={authEmail} setEmail={setAuthEmail} onSend={sendMagicLink} sending={authSending} sent={authSent} />
+  );
 
   return (
     <div className="min-h-screen bg-[#FF7E04] text-white">
@@ -528,7 +683,10 @@ export default function App() {
             <h1 className="font-display text-2xl sm:text-3xl font-semibold">Cosa si fa stasera?</h1>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              if (editingId) handleCancelEdit();
+              setShowForm(true);
+            }}
             className="lg:hidden shrink-0 inline-flex items-center gap-2 bg-white text-[#FF7E04] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE8D1] transition-colors"
           >
             <Plus size={18} /> Pubblica evento
@@ -776,9 +934,11 @@ export default function App() {
           <div className="bg-[#00AEEF] text-white border border-white/25 rounded-2xl overflow-hidden">
             <div className="flex items-center gap-2 px-6 py-4 border-b border-white/25">
               <Sparkles size={16} />
-              <h2 className="font-display text-lg font-semibold">Pubblica un evento con l'IA</h2>
+              <h2 className="font-display text-lg font-semibold">
+                {editingId ? "Modifica evento" : "Pubblica un evento con l'IA"}
+              </h2>
             </div>
-            <PublishForm {...formProps} />
+            {publishPanelContent}
           </div>
         </aside>
       </div>
@@ -787,12 +947,14 @@ export default function App() {
         <div className="lg:hidden fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-6">
           <div className="bg-[#00AEEF] text-white border border-white/25 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/25 sticky top-0 bg-[#00AEEF]">
-              <h2 className="font-display text-lg font-semibold">Pubblica un evento</h2>
+              <h2 className="font-display text-lg font-semibold">
+                {editingId ? "Modifica evento" : "Pubblica un evento"}
+              </h2>
               <button onClick={() => setShowForm(false)} className="text-white/80 hover:text-white">
                 <X size={20} />
               </button>
             </div>
-            <PublishForm {...formProps} />
+            {publishPanelContent}
           </div>
         </div>
       )}
@@ -817,6 +979,10 @@ function PublishForm({
   onRemoveImage,
   submitting,
   onSubmit,
+  editing,
+  onCancelEdit,
+  policyAccettata,
+  setPolicyAccettata,
 }) {
   const luogoInputRef = useRef(null);
   const autocompleteServiceRef = useRef(null);
@@ -1094,14 +1260,129 @@ function PublishForm({
         </Field>
       </div>
 
+      {!editing && (
+        <div>
+          <label className="flex items-start gap-2 text-xs text-white/90">
+            <input
+              type="checkbox"
+              checked={policyAccettata}
+              onChange={(e) => setPolicyAccettata(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Accetto i{" "}
+              <a href="/policy" target="_blank" rel="noopener noreferrer" className="underline font-semibold">
+                Termini e la Privacy Policy
+              </a>{" "}
+              di fomoas.
+            </span>
+          </label>
+          {errors.policy && <p className="text-xs text-red-100 bg-red-500/30 rounded-lg px-2.5 py-1.5 mt-1.5">{errors.policy}</p>}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        {editing && (
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="flex-1 bg-white/15 text-white font-semibold py-3 rounded-xl hover:bg-white/25 transition-colors"
+          >
+            Annulla
+          </button>
+        )}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="flex-1 bg-white text-[#FF7E04] font-semibold py-3 rounded-xl hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
+        >
+          {submitting ? "Invio in corso..." : editing ? "Aggiorna evento" : "Invia per la verifica"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function LoginBox({ email, setEmail, onSend, sending, sent }) {
+  if (sent) {
+    return (
+      <div className="p-6 text-sm text-white/90 space-y-2">
+        <p className="font-semibold">Controlla la tua email</p>
+        <p>
+          Ti abbiamo inviato un link di accesso a <strong>{email}</strong>. Aprilo per accedere e pubblicare il tuo
+          evento.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <form
+      onSubmit={(ev) => {
+        ev.preventDefault();
+        if (email.trim()) onSend(email.trim());
+      }}
+      className="p-6 space-y-3"
+    >
+      <p className="text-sm text-white/90">
+        Per pubblicare un evento accedi con la tua email: ti mandiamo un link, nessuna password da ricordare.
+      </p>
+      <input
+        type="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="tu@esempio.it"
+        className="w-full bg-white border border-white text-[#102937] rounded-xl px-3.5 py-2.5 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+      />
       <button
         type="submit"
-        disabled={submitting}
+        disabled={sending}
         className="w-full bg-white text-[#FF7E04] font-semibold py-3 rounded-xl hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
       >
-        {submitting ? "Invio in corso..." : "Invia per la verifica"}
+        {sending ? "Invio in corso..." : "Invia link di accesso"}
       </button>
     </form>
+  );
+}
+
+function MyEventsList({ events, onEdit, onDelete, deletingId }) {
+  return (
+    <div className="border-t border-white/25 px-6 py-4">
+      <h3 className="text-xs uppercase tracking-wider text-white/80 mb-3">I tuoi eventi</h3>
+      <div className="space-y-2">
+        {events.map((e) => (
+          <div key={e.id} className="flex items-center justify-between gap-2 bg-white/10 rounded-lg px-3 py-2 text-xs">
+            <div className="min-w-0">
+              <p className="font-semibold truncate">{e.titolo}</p>
+              <p className="text-white/70">
+                {new Date(e.data).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                {" · "}
+                {e.verificato ? "Verificato" : "In attesa di verifica"}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => onEdit(e)}
+                className="p-1.5 hover:bg-white/20 rounded"
+                title="Modifica"
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(e.id)}
+                disabled={deletingId === e.id}
+                className="p-1.5 hover:bg-white/20 rounded disabled:opacity-50"
+                title="Elimina"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
