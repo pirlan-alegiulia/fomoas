@@ -35,51 +35,14 @@ export default async function handler(req, res) {
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
   const raggio = Number.isFinite(raggioKm) && raggioKm > 0 ? raggioKm : 50;
 
-  const oggi = new Date().toISOString().slice(0, 10);
-
   try {
-    const message = await client.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 6000,
-      output_config: { effort: "medium" },
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
-      system:
-        `Oggi e il ${oggi}. Cerca sul web eventi reali, attuali o futuri (sagre, concerti, mercatini, sport, mostre, ` +
-        `vita notturna...) entro circa ${raggio} km dal luogo indicato dall'utente, usando fonti come pagine di ` +
-        `comuni/pro loco, giornali locali, pagine social pubbliche o siti di eventi. Non inventare mai eventi che ` +
-        `non hai trovato con la ricerca. Includi nel campo "luogo" di ogni evento il nome del comune/paese preciso ` +
-        `(non solo un quartiere generico), serve per calcolarne la distanza. Quando hai finito di cercare, rispondi ` +
-        `SOLO con un array JSON valido (nessun testo prima o dopo, nessun blocco di codice), con al massimo 16 ` +
-        `eventi, ciascuno con questa forma esatta: {"titolo": string, "data": string leggibile es. "15 settembre ` +
-        `2026" o "info non trovata", "luogo": string (comune preciso), "descrizione": string breve (max 20 parole), ` +
-        `"fonte": string url della pagina dove l'hai trovato}. Se non trovi nulla di pertinente e verificabile, ` +
-        `rispondi con un array vuoto [].`,
-      messages: [
-        {
-          role: "user",
-          content: hasCoords
-            ? `Trova eventi vicino a: ${luogo} (coordinate approssimative: ${lat}, ${lng})`
-            : `Trova eventi vicino a: ${luogo}`,
-        },
-      ],
-    });
-
-    const testo = message.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim();
-
-    let eventi = [];
-    try {
-      const start = testo.indexOf("[");
-      const end = testo.lastIndexOf("]");
-      eventi = start !== -1 && end !== -1 ? JSON.parse(testo.slice(start, end + 1)) : [];
-      if (!Array.isArray(eventi)) eventi = [];
-    } catch {
-      eventi = [];
+    // Prima passata veloce; se non trova nulla (capita, soprattutto per
+    // paesi piccoli con poca presenza online) riprova una volta sola con
+    // un budget di ricerca piu' ampio, invece di arrendersi subito.
+    let eventi = await cercaEventiViaAI(luogo, raggio, 4);
+    if (eventi.length === 0) {
+      eventi = await cercaEventiViaAI(luogo, raggio, 8);
     }
-    eventi = eventi.slice(0, 16);
     const candidati = eventi;
 
     if (hasCoords && MAPBOX_TOKEN && eventi.length > 0) {
@@ -105,6 +68,50 @@ export default async function handler(req, res) {
   } catch (err) {
     res.status(500).json({ error: err.message || "Errore nella ricerca." });
   }
+}
+
+async function cercaEventiViaAI(luogo, raggio, maxUses) {
+  const oggi = new Date().toISOString().slice(0, 10);
+  const message = await client.messages.create({
+    model: "claude-opus-5",
+    max_tokens: 6000,
+    output_config: { effort: "medium" },
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: maxUses }],
+    system:
+      `Oggi e il ${oggi}. Cerca sul web eventi reali, attuali o futuri (sagre, concerti, mercatini, sport, mostre, ` +
+      `vita notturna...) entro circa ${raggio} km dal luogo indicato dall'utente, usando fonti come pagine di ` +
+      `comuni/pro loco, giornali locali, pagine social pubbliche o siti di eventi. Non inventare mai eventi che ` +
+      `non hai trovato con la ricerca. Includi nel campo "luogo" di ogni evento il nome del comune/paese preciso ` +
+      `(non solo un quartiere generico), serve per calcolarne la distanza. Quando hai finito di cercare, rispondi ` +
+      `SOLO con un array JSON valido (nessun testo prima o dopo, nessun blocco di codice), con al massimo 16 ` +
+      `eventi, ciascuno con questa forma esatta: {"titolo": string, "data": string leggibile es. "15 settembre ` +
+      `2026" o "info non trovata", "luogo": string (comune preciso), "descrizione": string breve (max 20 parole), ` +
+      `"fonte": string url della pagina dove l'hai trovato}. Se non trovi nulla di pertinente e verificabile, ` +
+      `rispondi con un array vuoto [].`,
+    messages: [
+      {
+        role: "user",
+        content: `Trova eventi vicino a: ${luogo}`,
+      },
+    ],
+  });
+
+  const testo = message.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("")
+    .trim();
+
+  let eventi = [];
+  try {
+    const start = testo.indexOf("[");
+    const end = testo.lastIndexOf("]");
+    eventi = start !== -1 && end !== -1 ? JSON.parse(testo.slice(start, end + 1)) : [];
+    if (!Array.isArray(eventi)) eventi = [];
+  } catch {
+    eventi = [];
+  }
+  return eventi.slice(0, 16);
 }
 
 async function geocode(luogo, mapboxToken) {

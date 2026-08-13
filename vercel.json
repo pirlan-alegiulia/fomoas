@@ -8,7 +8,7 @@
   ],
   "functions": {
     "api/eventi-vicino-a-me.js": {
-      "maxDuration": 90
+      "maxDuration": 150
     }
   }
 }
