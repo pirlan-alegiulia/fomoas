@@ -8,6 +8,8 @@ create table if not exists eventi (
   ora time,
   luogo text not null,
   descrizione text,
+  gratuito boolean not null default true,
+  prezzo numeric(8,2),
   organizzatore text not null,
   email text not null,
   telefono text not null,

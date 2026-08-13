@@ -11,6 +11,8 @@ const emptyForm = {
   ora: "",
   luogo: "",
   descrizione: "",
+  gratuito: true,
+  prezzo: "",
   organizzatore: "",
   email: "",
   telefono: "",
@@ -53,6 +55,9 @@ export default function App() {
   useEffect(() => {
     if (events.length === 0) return;
 
+    const siteUrl = window.location.origin;
+    const fallbackImage = `${siteUrl}/event-placeholder.png`;
+
     const structuredData = {
       "@context": "https://schema.org",
       "@type": "ItemList",
@@ -64,11 +69,25 @@ export default function App() {
         location: {
           "@type": "Place",
           name: e.luogo,
+          address: e.luogo,
         },
-        description: e.descrizione || undefined,
+        image: [fallbackImage],
+        description:
+          e.descrizione || `${e.titolo} a ${e.luogo}, organizzato da ${e.organizzatore}.`,
         organizer: {
           "@type": "Organization",
           name: e.organizzatore,
+        },
+        performer: {
+          "@type": "Organization",
+          name: e.organizzatore,
+        },
+        offers: {
+          "@type": "Offer",
+          url: e.link_verifica || siteUrl,
+          price: e.gratuito ? "0" : String(e.prezzo ?? "0"),
+          priceCurrency: "EUR",
+          availability: "https://schema.org/InStock",
         },
         url: e.link_verifica || undefined,
       })),
@@ -104,6 +123,10 @@ export default function App() {
     if (!form.titolo.trim()) e.titolo = "Inserisci un titolo";
     if (!form.data) e.data = "Inserisci una data";
     if (!form.luogo.trim()) e.luogo = "Inserisci un luogo";
+    if (!form.gratuito) {
+      const p = Number(form.prezzo);
+      if (!form.prezzo || Number.isNaN(p) || p <= 0) e.prezzo = "Inserisci un prezzo valido";
+    }
     if (!form.organizzatore.trim()) e.organizzatore = "Inserisci chi organizza";
     if (!isValidEmail(form.email)) e.email = "Email non valida";
     if (!isValidPhone(form.telefono)) e.telefono = "Numero non valido (es. +39 333 1234567)";
@@ -120,6 +143,7 @@ export default function App() {
       {
         ...form,
         ora: form.ora || null,
+        prezzo: form.gratuito ? null : Number(form.prezzo),
         reports: 0,
         verificato: false,
       },
@@ -221,9 +245,14 @@ export default function App() {
             {filtered.map((e) => (
               <article key={e.id} className="relative bg-[#FBF6EC] text-[#1C2740] rounded-sm shadow-lg p-5 pt-6">
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="text-[10px] tracking-wider uppercase bg-[#12203D] text-[#E8A33D] px-2 py-1 rounded-full">
-                    {e.categoria}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] tracking-wider uppercase bg-[#12203D] text-[#E8A33D] px-2 py-1 rounded-full">
+                      {e.categoria}
+                    </span>
+                    <span className="text-[10px] tracking-wider uppercase bg-[#E3D9C4] text-[#5B4636] px-2 py-1 rounded-full">
+                      {e.gratuito ? "Gratuito" : `€ ${Number(e.prezzo).toFixed(2)}`}
+                    </span>
+                  </div>
                   {e.verificato && (
                     <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700">
                       <ShieldCheck size={13} /> Verificato
@@ -325,6 +354,34 @@ export default function App() {
                   className={inputCls(errors.luogo)}
                   placeholder="Piazza Garibaldi, Modena"
                 />
+              </Field>
+
+              <Field label="Ingresso">
+                <div className="flex items-center gap-4 mb-2">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.gratuito}
+                      onChange={(e) =>
+                        setForm({ ...form, gratuito: e.target.checked, prezzo: e.target.checked ? "" : form.prezzo })
+                      }
+                      className="accent-[#E8A33D]"
+                    />
+                    Evento gratuito
+                  </label>
+                </div>
+                {!form.gratuito && (
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={form.prezzo}
+                    onChange={(e) => setForm({ ...form, prezzo: e.target.value })}
+                    className={inputCls(errors.prezzo)}
+                    placeholder="Prezzo in euro, es. 10"
+                  />
+                )}
+                {errors.prezzo && <span className="block text-xs text-[#F0857A] mt-1">{errors.prezzo}</span>}
               </Field>
 
               <Field label="Descrizione">
