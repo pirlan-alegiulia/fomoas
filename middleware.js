@@ -6,6 +6,8 @@
 // sito resta consultabile anche da chi non esegue JavaScript.
 // Gli utenti umani (browser) non passano da qui: ricevono la SPA normale.
 
+import { esc, fmtData, prezzoLabel, buildEventJsonLd } from "./lib/eventoSchema.js";
+
 export const config = { matcher: ["/", "/evento/:path*"] };
 
 const BOT_UA =
@@ -39,22 +41,6 @@ async function supabaseFetch(query) {
   return res.json();
 }
 
-function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-function fmtData(d) {
-  try {
-    return new Date(d).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
-  } catch {
-    return d;
-  }
-}
-
-function prezzoLabel(e) {
-  return e.gratuito ? "Ingresso gratuito" : `Ingresso € ${Number(e.prezzo).toFixed(2)}`;
-}
-
 async function renderHomePage(siteUrl) {
   const eventi = await supabaseFetch("select=*&verificato=eq.true&order=data.asc");
   if (!eventi) return null;
@@ -63,21 +49,8 @@ async function renderHomePage(siteUrl) {
     "@context": "https://schema.org",
     "@type": "ItemList",
     itemListElement: eventi.map((e, i) => ({
-      "@type": "Event",
+      ...buildEventJsonLd(e, siteUrl),
       position: i + 1,
-      name: e.titolo,
-      startDate: e.data,
-      location: { "@type": "Place", name: e.luogo, address: e.luogo },
-      description: e.descrizione || `${e.titolo} a ${e.luogo}`,
-      organizer: { "@type": "Organization", name: e.organizzatore },
-      url: `${siteUrl}/evento/${e.id}`,
-      offers: {
-        "@type": "Offer",
-        url: e.link_verifica || siteUrl,
-        price: e.gratuito ? "0" : String(e.prezzo ?? "0"),
-        priceCurrency: "EUR",
-        availability: "https://schema.org/InStock",
-      },
     })),
   };
 
@@ -117,23 +90,7 @@ async function renderEventPage(id, siteUrl) {
   const e = eventi?.[0];
   if (!e) return null;
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Event",
-    name: e.titolo,
-    startDate: e.data,
-    location: { "@type": "Place", name: e.luogo, address: e.luogo },
-    description: e.descrizione || `${e.titolo} a ${e.luogo}`,
-    organizer: { "@type": "Organization", name: e.organizzatore },
-    url: `${siteUrl}/evento/${e.id}`,
-    offers: {
-      "@type": "Offer",
-      url: e.link_verifica || siteUrl,
-      price: e.gratuito ? "0" : String(e.prezzo ?? "0"),
-      priceCurrency: "EUR",
-      availability: "https://schema.org/InStock",
-    },
-  };
+  const jsonLd = buildEventJsonLd(e, siteUrl);
 
   return `<!doctype html>
 <html lang="it">

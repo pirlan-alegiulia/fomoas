@@ -4,7 +4,8 @@
     { "source": "/admin/(.*)", "destination": "/index.html" },
     { "source": "/policy", "destination": "/index.html" },
     { "source": "/evento/(.*)", "destination": "/index.html" },
-    { "source": "/sitemap.xml", "destination": "/api/sitemap" }
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/api/today-events.json", "destination": "/api/today-events" }
   ],
   "functions": {
     "api/eventi-vicino-a-me.js": {

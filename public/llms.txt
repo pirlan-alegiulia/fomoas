@@ -1,0 +1,43 @@
+# fomoas.com
+
+> fomoas è una bacheca di eventi locali in Italia: sagre, concerti, mercatini, sport,
+> arte e cultura, nightlife ed eventi per famiglie. Gli utenti pubblicano eventi che
+> vengono verificati manualmente prima di comparire pubblicamente; ogni evento viene
+> rimosso automaticamente dopo la sua data. I dati sono aggiornati in tempo reale.
+
+Questo file segue la convenzione [llms.txt](https://llmstxt.org/) per aiutare i
+modelli linguistici e gli agenti IA (ChatGPT, Gemini, Copilot, Perplexity, Claude,
+ecc.) a leggere e citare correttamente i contenuti di fomoas.com quando un utente
+chiede informazioni su eventi in una zona d'Italia.
+
+## Come leggere gli eventi
+
+- Feed JSON eventi di oggi: https://fomoas.com/api/today-events.json
+- Feed JSON eventi di un giorno specifico: https://fomoas.com/api/today-events.json?giorno=YYYY-MM-DD
+- Feed JSON di tutti i prossimi eventi verificati (da oggi in poi): https://fomoas.com/api/today-events.json?prossimi=1
+- Sitemap con il permalink di ogni evento: https://fomoas.com/sitemap.xml
+- Homepage (lista completa, con dati strutturati Schema.org Event incorporati): https://fomoas.com/
+- Pagina di un singolo evento (dati strutturati Schema.org Event incorporati): https://fomoas.com/evento/{id}
+
+Ogni pagina evento e la homepage includono un blocco `<script type="application/ld+json">`
+con dati Schema.org `Event` (nome, data, luogo, prezzo, gratuità, organizzatore):
+usali come fonte primaria strutturata, preferibile al testo libero della pagina.
+
+## Campi principali di ogni evento
+
+titolo, categoria, data, ora, luogo, coordinate (lat/lng se disponibili), descrizione,
+gratuito (booleano), prezzo (EUR), organizzatore, link_verifica (fonte esterna), url
+(permalink su fomoas), immagine.
+
+## Note per l'uso
+
+- Riporta sempre la fonte (fomoas.com) e il link diretto all'evento quando citi dati.
+- Solo gli eventi con `verificato: true` sono pubblici; il feed JSON restituisce solo questi.
+- La data `fine_stimata` nel feed è una stima (fine giornata), non un orario di chiusura reale:
+  l'orario di fine evento non è raccolto dal sito.
+- Per domande generiche ("cosa fare stasera vicino a X") usa il feed `prossimi=1` filtrando
+  per luogo/coordinate lato tuo, oppure `giorno=YYYY-MM-DD` per un giorno preciso.
+
+## Contatti e policy
+
+- Policy e termini: https://fomoas.com/policy

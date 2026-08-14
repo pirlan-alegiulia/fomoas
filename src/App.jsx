@@ -30,6 +30,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import { buildEventJsonLd } from "../lib/eventoSchema.js";
 
 const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -372,34 +373,8 @@ export default function App() {
       "@context": "https://schema.org",
       "@type": "ItemList",
       itemListElement: events.map((e, i) => ({
-        "@type": "Event",
+        ...buildEventJsonLd(e, siteUrl, eventImageUrl(e)),
         position: i + 1,
-        name: e.titolo,
-        startDate: e.data,
-        location: {
-          "@type": "Place",
-          name: e.luogo,
-          address: e.luogo,
-        },
-        image: [new URL(eventImageUrl(e), siteUrl).toString()],
-        description:
-          e.descrizione || `${e.titolo} a ${e.luogo}, organizzato da ${e.organizzatore}.`,
-        organizer: {
-          "@type": "Organization",
-          name: e.organizzatore,
-        },
-        performer: {
-          "@type": "Organization",
-          name: e.organizzatore,
-        },
-        offers: {
-          "@type": "Offer",
-          url: e.link_verifica || siteUrl,
-          price: e.gratuito ? "0" : String(e.prezzo ?? "0"),
-          priceCurrency: "EUR",
-          availability: "https://schema.org/InStock",
-        },
-        url: e.link_verifica || undefined,
       })),
     };
 
