@@ -6,7 +6,11 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// maxRetries a zero: in caso di timeout l'SDK per impostazione predefinita
+// riprova, e i tentativi sommati superavano il limite della funzione facendola
+// troncare da Vercel con un 504. Qui un solo tentativo, poi si rinuncia
+// pulitamente e l'interfaccia propone "Riprova" all'utente.
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
 
 const QUANTI = 8;
 const MAX_RICHIESTA = 300;
@@ -37,7 +41,9 @@ export default async function handler(req, res) {
       model: "claude-sonnet-5",
       max_tokens: 4000,
       output_config: { effort: "low" },
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+      // Tre ricerche: con quattro i tempi arrivavano oltre il minuto e mezzo.
+      // Meglio qualche risultato in meno ma una risposta che arriva sempre.
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }],
       system:
         `Oggi e il ${oggi}. Cerca sul web eventi reali in Italia (sagre, concerti, mercatini, sport, mostre, ` +
         `vita notturna, eventi per famiglie...) che corrispondano alla richiesta dell'utente, scritta in ` +
@@ -58,7 +64,7 @@ export default async function handler(req, res) {
       // ricerca si dilunga preferiamo restituire un errore pulito, che
       // l'interfaccia sa mostrare con un "Riprova", invece di farci troncare
       // dal gateway con un 504 che al browser arriva come pagina HTML.
-      timeout: 85_000,
+      timeout: 70_000,
     });
 
     const testo = message.content
