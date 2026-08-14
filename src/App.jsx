@@ -734,7 +734,14 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FF7E04] text-white">
+    <div
+      className="min-h-screen text-white"
+      style={{
+        background:
+          "linear-gradient(160deg, #FF8000 0%, #FFAA00 22%, #A6C8FF 55%, #4D8AFF 78%, #4F5FEF 100%)",
+        backgroundAttachment: "fixed",
+      }}
+    >
       <header className="border-b border-white/25 px-5 py-6 sm:px-8">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
           <div>
@@ -746,7 +753,7 @@ export default function App() {
               if (editingId) handleCancelEdit();
               setShowForm(true);
             }}
-            className="lg:hidden shrink-0 inline-flex items-center gap-2 bg-white text-[#FF7E04] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE8D1] transition-colors"
+            className="lg:hidden shrink-0 inline-flex items-center gap-2 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE3B0] transition-colors"
           >
             <Plus size={18} /> Pubblica evento
           </button>
@@ -778,7 +785,7 @@ export default function App() {
         <div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FF7E04]" />
+              <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FF8000]" />
               <input
                 value={query}
                 onChange={(e) => {
@@ -789,7 +796,7 @@ export default function App() {
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                 placeholder="Cerca per nome, luogo, tipo di evento..."
-                className="w-full bg-white border border-white text-[#102937] rounded-xl pl-10 pr-4 py-3 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+                className="w-full bg-white border border-white text-[#1B2444] rounded-xl pl-10 pr-4 py-3 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
               />
               {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E2E8F0] rounded-xl overflow-hidden shadow-xl z-10">
@@ -802,7 +809,7 @@ export default function App() {
                         setQuery(s);
                         setShowSuggestions(false);
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-[#102937] hover:bg-[#FFE8D1] transition-colors"
+                      className="w-full text-left px-4 py-2 text-sm text-[#1B2444] hover:bg-[#FFE3B0] transition-colors"
                     >
                       {s}
                     </button>
@@ -817,20 +824,20 @@ export default function App() {
                   setCategoryFilter(e.target.value);
                   setAiEventIds(null);
                 }}
-                className="appearance-none bg-white border border-white text-[#102937] rounded-xl pl-4 pr-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+                className="appearance-none bg-white border border-white text-[#1B2444] rounded-xl pl-4 pr-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
               >
                 <option>Tutte</option>
                 {CATEGORIES.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
               </select>
-              <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF7E04] pointer-events-none" />
+              <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF8000] pointer-events-none" />
             </div>
             <div className="relative">
               <button
                 onClick={() => setChatOpen((o) => !o)}
                 className={`h-full w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
-                  chatOpen ? "bg-white text-[#00AEEF]" : "bg-[#00AEEF] text-white hover:bg-[#0C9FDA]"
+                  chatOpen ? "bg-white text-[#4D8AFF]" : "bg-[#4D8AFF] text-white hover:bg-[#3A72E6]"
                 }`}
               >
                 {chatOpen ? <X size={16} /> : <MessageCircle size={16} />}
@@ -851,7 +858,7 @@ export default function App() {
             <button
               onClick={trovaEventiVicino}
               disabled={nearbyLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold bg-white text-[#FF7E04] hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold bg-white text-[#FF8000] hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
             >
               <LocateFixed size={16} />
               {nearbyLoading ? "Cerco..." : "Trova eventi vicino a me"}
@@ -898,9 +905,9 @@ export default function App() {
                   return (
                   <article
                     key={e.id}
-                    className="relative bg-[#00AEEF] text-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden"
+                    className="relative bg-[#4D8AFF] text-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden"
                   >
-                    <div className="relative h-40 w-full bg-[#0C86BA]">
+                    <div className="relative h-40 w-full bg-[#3A6FE0]">
                       {e.immagine_url ? (
                         <img
                           src={e.immagine_url}
@@ -927,7 +934,7 @@ export default function App() {
                         >
                           {e.categoria}
                         </span>
-                        <span className="text-[10px] tracking-wider uppercase bg-white text-[#0277BD] px-2 py-1 rounded-full">
+                        <span className="text-[10px] tracking-wider uppercase bg-white text-[#4F5FEF] px-2 py-1 rounded-full">
                           {e.gratuito ? "Gratuito" : `€ ${Number(e.prezzo).toFixed(2)}`}
                         </span>
                       </div>
@@ -1050,7 +1057,7 @@ export default function App() {
         </div>
 
         <aside className="hidden lg:block sticky top-6 mb-8">
-          <div className="bg-[#00AEEF] text-white border border-white/25 rounded-2xl overflow-hidden">
+          <div className="bg-[#4D8AFF] text-white border border-white/25 rounded-2xl overflow-hidden">
             <div className="flex items-center gap-2 px-6 py-4 border-b border-white/25">
               <Sparkles size={16} />
               <h2 className="font-display text-lg font-semibold">
@@ -1064,8 +1071,8 @@ export default function App() {
 
       {showForm && (
         <div className="lg:hidden fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-6">
-          <div className="bg-[#00AEEF] text-white border border-white/25 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/25 sticky top-0 bg-[#00AEEF]">
+          <div className="bg-[#4D8AFF] text-white border border-white/25 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/25 sticky top-0 bg-[#4D8AFF]">
               <h2 className="font-display text-lg font-semibold">
                 {editingId ? "Modifica evento" : "Pubblica un evento"}
               </h2>
@@ -1079,7 +1086,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#00AEEF] text-white border border-white/25 px-4 py-2.5 rounded-full text-sm font-semibold shadow-xl">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#4D8AFF] text-white border border-white/25 px-4 py-2.5 rounded-full text-sm font-semibold shadow-xl">
           {toast.msg}
         </div>
       )}
@@ -1236,7 +1243,7 @@ function PublishForm({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => selectPlace(s)}
-                  className="w-full text-left px-4 py-2 text-sm text-[#102937] hover:bg-[#FFE8D1] transition-colors"
+                  className="w-full text-left px-4 py-2 text-sm text-[#1B2444] hover:bg-[#FFE3B0] transition-colors"
                 >
                   {s.description}
                 </button>
@@ -1254,7 +1261,7 @@ function PublishForm({
               <button
                 type="button"
                 onClick={onRemoveImage}
-                className="absolute -top-2 -right-2 bg-white text-[#FF7E04] rounded-full p-0.5 shadow"
+                className="absolute -top-2 -right-2 bg-white text-[#FF8000] rounded-full p-0.5 shadow"
               >
                 <X size={12} />
               </button>
@@ -1281,7 +1288,7 @@ function PublishForm({
               onChange={(e) =>
                 setForm({ ...form, gratuito: e.target.checked, prezzo: e.target.checked ? "" : form.prezzo })
               }
-              className="accent-[#FF7E04]"
+              className="accent-[#FF8000]"
             />
             Evento gratuito
           </label>
@@ -1413,7 +1420,7 @@ function PublishForm({
         <button
           type="submit"
           disabled={submitting}
-          className="flex-1 bg-white text-[#FF7E04] font-semibold py-3 rounded-xl hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
+          className="flex-1 bg-white text-[#FF8000] font-semibold py-3 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
         >
           {submitting ? "Invio in corso..." : editing ? "Aggiorna evento" : "Invia per la verifica"}
         </button>
@@ -1460,12 +1467,12 @@ function LoginBox({ email, setEmail, onSend, sending, sent }) {
               value={codice}
               onChange={(e) => setCodice(e.target.value.replace(/\D/g, ""))}
               placeholder="123456"
-              className="flex-1 min-w-0 bg-white border border-white text-[#102937] rounded-xl px-3.5 py-2.5 text-sm text-center tracking-[0.3em] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+              className="flex-1 min-w-0 bg-white border border-white text-[#1B2444] rounded-xl px-3.5 py-2.5 text-sm text-center tracking-[0.3em] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
             />
             <button
               type="submit"
               disabled={verificando}
-              className="shrink-0 bg-white text-[#FF7E04] font-semibold px-4 py-2.5 rounded-xl hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
+              className="shrink-0 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
             >
               {verificando ? "..." : "Verifica"}
             </button>
@@ -1492,12 +1499,12 @@ function LoginBox({ email, setEmail, onSend, sending, sent }) {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="tu@esempio.it"
-        className="w-full bg-white border border-white text-[#102937] rounded-xl px-3.5 py-2.5 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+        className="w-full bg-white border border-white text-[#1B2444] rounded-xl px-3.5 py-2.5 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
       />
       <button
         type="submit"
         disabled={sending}
-        className="w-full bg-white text-[#FF7E04] font-semibold py-3 rounded-xl hover:bg-[#FFE8D1] transition-colors disabled:opacity-60"
+        className="w-full bg-white text-[#FF8000] font-semibold py-3 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
       >
         {sending ? "Invio in corso..." : "Invia link di accesso"}
       </button>
@@ -1559,7 +1566,7 @@ function Field({ label, error, children }) {
 function inputCls(error) {
   return `w-full bg-white border ${
     error ? "border-[#DC2626]" : "border-white"
-  } rounded-lg px-3.5 py-2.5 text-sm text-[#102937] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#FF7E04]`;
+  } rounded-lg px-3.5 py-2.5 text-sm text-[#1B2444] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#FF8000]`;
 }
 
 function AiChatPanel({
@@ -1583,8 +1590,8 @@ function AiChatPanel({
   if (!open) return null;
 
   return (
-    <div className="absolute right-0 top-full mt-2 z-40 w-[calc(100vw-2.5rem)] sm:w-96 h-[28rem] bg-white text-[#102937] rounded-2xl shadow-2xl border border-[#E2E8F0] flex flex-col overflow-hidden">
-      <div className="bg-[#00AEEF] text-white px-4 py-3 flex items-center gap-2 shrink-0">
+    <div className="absolute right-0 top-full mt-2 z-40 w-[calc(100vw-2.5rem)] sm:w-96 h-[28rem] bg-white text-[#1B2444] rounded-2xl shadow-2xl border border-[#E2E8F0] flex flex-col overflow-hidden">
+      <div className="bg-[#4D8AFF] text-white px-4 py-3 flex items-center gap-2 shrink-0">
         <Sparkles size={16} />
         <h3 className="font-display font-semibold text-sm">Non sai cosa cercare? Chiedimelo</h3>
       </div>
@@ -1608,7 +1615,7 @@ function AiChatPanel({
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div
               className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
-                m.role === "user" ? "bg-[#FF7E04] text-white" : "bg-[#F1F5F9] text-[#102937]"
+                m.role === "user" ? "bg-[#FF8000] text-white" : "bg-[#F1F5F9] text-[#1B2444]"
               }`}
             >
               {m.content}
@@ -1634,7 +1641,7 @@ function AiChatPanel({
             type="button"
             onClick={onToggleMic}
             className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-              listening ? "bg-[#FF5252] text-white" : "bg-[#F1F5F9] text-[#00AEEF] hover:bg-[#E2E8F0]"
+              listening ? "bg-[#FF5252] text-white" : "bg-[#F1F5F9] text-[#4D8AFF] hover:bg-[#E2E8F0]"
             }`}
             aria-label={listening ? "Ferma ascolto" : "Parla con l'assistente"}
           >
@@ -1645,12 +1652,12 @@ function AiChatPanel({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={listening ? "Ti ascolto..." : "Scrivi o parla..."}
-          className="flex-1 min-w-0 bg-[#F1F5F9] rounded-full px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+          className="flex-1 min-w-0 bg-[#F1F5F9] rounded-full px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="shrink-0 w-9 h-9 rounded-full bg-[#FF7E04] text-white flex items-center justify-center disabled:opacity-40"
+          className="shrink-0 w-9 h-9 rounded-full bg-[#FF8000] text-white flex items-center justify-center disabled:opacity-40"
           aria-label="Invia"
         >
           <Send size={15} />

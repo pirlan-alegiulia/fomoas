@@ -1,6 +1,6 @@
 export default function PolicyPage() {
   return (
-    <div className="min-h-screen bg-[#FF7E04] text-white">
+    <div className="min-h-screen bg-[#FF8000] text-white">
       <header className="border-b border-white/25 px-5 py-6 sm:px-8">
         <div className="max-w-3xl mx-auto">
           <p className="text-xs tracking-[0.2em] uppercase text-white/80 mb-1">fomoas</p>
@@ -9,7 +9,7 @@ export default function PolicyPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 sm:px-8 py-10">
-        <div className="bg-[#00AEEF] border border-white/25 rounded-2xl p-6 sm:p-8 space-y-6 text-sm leading-relaxed text-white/95">
+        <div className="bg-[#4D8AFF] border border-white/25 rounded-2xl p-6 sm:p-8 space-y-6 text-sm leading-relaxed text-white/95">
           <p className="text-xs text-white/70">
             Bozza iniziale, in attesa della versione definitiva. Ultimo aggiornamento: agosto 2026.
           </p>
