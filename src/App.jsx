@@ -19,12 +19,53 @@ import {
   LocateFixed,
   Pencil,
   Trash2,
+  Music,
+  UtensilsCrossed,
+  ShoppingBag,
+  Trophy,
+  Palette,
+  Users,
+  Moon,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
 const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+
+// Identita' visiva per categoria: colore d'accento e illustrazione di
+// fallback quando l'evento non ha una foto propria (al posto della mappa).
+const CATEGORY_STYLE = {
+  Musica: { accent: "#8B5CF6", icon: Music, from: "#7C3AED", to: "#C4B5FD" },
+  Sagra: { accent: "#F97316", icon: UtensilsCrossed, from: "#EA580C", to: "#FDBA74" },
+  Mercatino: { accent: "#059669", icon: ShoppingBag, from: "#047857", to: "#6EE7B7" },
+  Sport: { accent: "#0284C7", icon: Trophy, from: "#0369A1", to: "#7DD3FC" },
+  "Arte & Cultura": { accent: "#DB2777", icon: Palette, from: "#BE185D", to: "#F9A8D4" },
+  Famiglia: { accent: "#D97706", icon: Users, from: "#B45309", to: "#FCD34D" },
+  Nightlife: { accent: "#4F46E5", icon: Moon, from: "#4338CA", to: "#A5B4FC" },
+  Altro: { accent: "#64748B", icon: Sparkles, from: "#475569", to: "#CBD5E1" },
+};
+function categoryStyle(categoria) {
+  return CATEGORY_STYLE[categoria] || CATEGORY_STYLE.Altro;
+}
+
+// Titolo elegante: maiuscola a inizio parola, articoli/preposizioni brevi
+// restano minuscoli (tranne a inizio frase) — corregge titoli inseriti
+// tutti minuscoli senza stravolgere quelli gia' scritti bene.
+const MINUSCOLE_IT = new Set([
+  "di", "a", "da", "in", "con", "su", "per", "tra", "fra", "e", "o", "il", "lo", "la", "i", "gli", "le",
+  "un", "uno", "una", "del", "dello", "della", "dei", "degli", "delle", "al", "allo", "alla", "ai", "agli",
+  "alle", "dal", "dallo", "dalla", "dai", "dagli", "dalle", "nel", "nello", "nella", "nei", "negli", "nelle",
+]);
+function titleCase(str) {
+  if (!str) return str;
+  return str
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w, i) => (i !== 0 && MINUSCOLE_IT.has(w) ? w : w.replace(/(^|['-])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase())))
+    .join(" ");
+}
 
 // Carica lo script di Google Maps (con la libreria Places) una sola volta,
 // anche se piu componenti PublishForm lo richiedono in parallelo
@@ -698,7 +739,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
           <div>
             <p className="text-xs tracking-[0.2em] uppercase text-white/80 mb-1">fomoas</p>
-            <h1 className="font-display text-2xl sm:text-3xl font-semibold">Cosa si fa stasera?</h1>
+            <h1 className="font-hero text-4xl sm:text-5xl">Cosa si fa stasera?</h1>
           </div>
           <button
             onClick={() => {
@@ -710,6 +751,27 @@ export default function App() {
             <Plus size={18} /> Pubblica evento
           </button>
         </div>
+        {events.length > 0 && (
+          <div className="max-w-6xl mx-auto mt-4 -mb-1 flex items-center gap-3 overflow-x-auto pb-1">
+            <span className="shrink-0 text-[10px] tracking-[0.15em] uppercase text-white/70">In arrivo</span>
+            {events.slice(0, 6).map((e) => (
+              <button
+                key={e.id}
+                onClick={() => {
+                  setQuery(e.titolo);
+                  setShowSuggestions(false);
+                  setAiEventIds(null);
+                }}
+                className="shrink-0 inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 transition-colors rounded-full px-3 py-1.5 text-xs whitespace-nowrap"
+              >
+                <span className="font-semibold">{titleCase(e.titolo)}</span>
+                <span className="text-white/70">
+                  · {new Date(e.data).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6 lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 lg:items-start">
@@ -829,22 +891,40 @@ export default function App() {
                 <p className="text-sm text-white/80">Pubblica il primo evento per iniziare a riempirla.</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-6">
-                {filtered.map((e) => (
-                  <article key={e.id} className="relative bg-[#00AEEF] text-white rounded-sm shadow-lg overflow-hidden">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filtered.map((e) => {
+                  const style = categoryStyle(e.categoria);
+                  const CategoryIcon = style.icon;
+                  return (
+                  <article
+                    key={e.id}
+                    className="relative bg-[#00AEEF] text-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden"
+                  >
                     <div className="relative h-40 w-full bg-[#0C86BA]">
-                      <img
-                        src={eventImageUrl(e)}
-                        alt=""
-                        loading="lazy"
-                        className="w-full h-full object-cover"
-                        onError={(ev) => {
-                          ev.currentTarget.src = "/event-placeholder.png";
-                        }}
-                      />
+                      {e.immagine_url ? (
+                        <img
+                          src={e.immagine_url}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                          onError={(ev) => {
+                            ev.currentTarget.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="w-full h-full flex items-center justify-center"
+                          style={{ background: `linear-gradient(135deg, ${style.from}, ${style.to})` }}
+                        >
+                          <CategoryIcon size={52} strokeWidth={1.5} className="text-white/50" />
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
                       <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                        <span className="text-[10px] tracking-wider uppercase bg-white text-[#FF7E04] px-2 py-1 rounded-full">
+                        <span
+                          className="text-[10px] tracking-wider uppercase text-white px-2 py-1 rounded-full font-semibold"
+                          style={{ backgroundColor: style.accent }}
+                        >
                           {e.categoria}
                         </span>
                         <span className="text-[10px] tracking-wider uppercase bg-white text-[#0277BD] px-2 py-1 rounded-full">
@@ -858,7 +938,7 @@ export default function App() {
                       )}
                     </div>
                     <div className="p-5 pt-4">
-                      <h3 className="font-display text-lg font-semibold leading-snug mb-1">{e.titolo}</h3>
+                      <h3 className="font-display text-xl font-bold leading-snug mb-1.5">{titleCase(e.titolo)}</h3>
                       <div className="text-xs text-white/85 space-y-1 mb-3">
                         <p className="flex items-center gap-1.5">
                           <Calendar size={13} />
@@ -900,7 +980,8 @@ export default function App() {
                       </div>
                     </div>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             )}
 
