@@ -34,7 +34,6 @@ import { buildEventJsonLd } from "../lib/eventoSchema.js";
 
 const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-const PENDING_KEY = "fomoas_evento_in_attesa";
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 
 // Identita' visiva per categoria: colore d'accento e illustrazione di
@@ -232,6 +231,8 @@ export default function App() {
   const [showLoginBox, setShowLoginBox] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
+  const [confermaRicevuta, setConfermaRicevuta] = useState(false);
+  const bozzaElaborataRef = useRef(null);
   const [editingId, setEditingId] = useState(null);
   const [editingImageUrl, setEditingImageUrl] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -255,22 +256,45 @@ export default function App() {
     fetchMyEvents(session?.user?.id);
   }, [session]);
 
-  // Se l'utente ha compilato il form e cliccato "Invia" mentre non era
-  // loggato, il click sul link nell'email ricarica la pagina da zero: lo
-  // stato in memoria (React) va perso. Per questo i dati del form vengono
-  // salvati in localStorage prima di mandare l'email, e recuperati qui
-  // appena la sessione arriva, per completare la pubblicazione da soli.
+  // Appena arriva una sessione (cioe' l'utente ha cliccato il link ricevuto
+  // via email, da qualunque browser o dispositivo) controlliamo se esiste
+  // una bozza depositata con quello stesso indirizzo: se c'e', l'email e'
+  // confermata e possiamo pubblicare davvero l'evento.
   useEffect(() => {
-    if (!session) return;
-    const salvato = localStorage.getItem(PENDING_KEY);
-    if (!salvato) return;
-    localStorage.removeItem(PENDING_KEY);
-    try {
-      const { form: formSalvato } = JSON.parse(salvato);
-      if (formSalvato) eseguiInvio(formSalvato);
-    } catch {
-      // dati corrotti o scaduti: ignora silenziosamente
-    }
+    const utente = session?.user?.id;
+    if (!utente) return;
+    // onAuthStateChange puo' emettere piu' volte per la stessa sessione
+    // (login, refresh del token...): senza questa guardia due esecuzioni
+    // sovrapposte leggerebbero la stessa bozza e pubblicherebbero due volte.
+    if (bozzaElaborataRef.current === utente) return;
+    bozzaElaborataRef.current = utente;
+    let annullato = false;
+
+    (async () => {
+      const { data: bozze } = await supabase
+        .from("eventi_in_attesa")
+        .select("id, dati")
+        .order("created_at", { ascending: true });
+      if (annullato || !bozze || bozze.length === 0) return;
+
+      const bozza = bozze[bozze.length - 1];
+      const { immagine_url, ...datiForm } = bozza.dati || {};
+      const ok = await eseguiInvio(datiForm, immagine_url ?? null);
+      if (annullato) return;
+
+      // La bozza (e le eventuali precedenti dello stesso indirizzo) ha
+      // esaurito il suo scopo: va rimossa in ogni caso, altrimenti
+      // ripartirebbe a ogni accesso successivo.
+      await supabase
+        .from("eventi_in_attesa")
+        .delete()
+        .in("id", bozze.map((b) => b.id));
+      if (!annullato && ok) setConfermaRicevuta(true);
+    })();
+
+    return () => {
+      annullato = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
@@ -441,25 +465,32 @@ export default function App() {
     if (!validate()) return;
 
     if (!session) {
-      // Non ancora autenticato: salviamo i dati del form prima di mandare
-      // l'email, perche' cliccare il link ricarica la pagina da zero e lo
-      // stato in memoria andrebbe perso. L'effetto sopra recupera questi
-      // dati da localStorage appena la sessione arriva e completa da solo
-      // la pubblicazione, anche se la pagina originale non e' piu' aperta.
-      try {
-        localStorage.setItem(PENDING_KEY, JSON.stringify({ form }));
-      } catch {
-        // storage pieno o non disponibile: si procede comunque, nel peggiore
-        // dei casi l'utente dovra' semplicemente reinviare dopo il login
+      // Non ancora autenticato: la bozza va salvata sul database, non nel
+      // browser. Il link di conferma viene quasi sempre aperto altrove
+      // (app di posta, altro dispositivo), dove il localStorage di questa
+      // pagina non esiste: i dati sarebbero irrecuperabili. Sul database
+      // invece la bozza e' leggibile da qualunque browser, ma solo da chi
+      // ha dimostrato di possedere quell'indirizzo email.
+      setSubmitting(true);
+      const immagine_url = await caricaImmagine();
+      if (immagine_url === false) return;
+
+      const { error: bozzaError } = await supabase
+        .from("eventi_in_attesa")
+        .insert([{ email: form.email, dati: { ...form, immagine_url } }]);
+      if (bozzaError) {
+        setSubmitting(false);
+        setToast({ type: "error", msg: "Errore nel salvataggio dei dati: " + bozzaError.message });
+        setTimeout(() => setToast(null), 4000);
+        return;
       }
-      setAuthSending(true);
+
       const { error } = await supabase.auth.signInWithOtp({
         email: form.email,
         options: { emailRedirectTo: window.location.origin },
       });
-      setAuthSending(false);
+      setSubmitting(false);
       if (error) {
-        localStorage.removeItem(PENDING_KEY);
         setToast({ type: "error", msg: "Errore nell'invio dell'email: " + error.message });
         setTimeout(() => setToast(null), 4000);
         return;
@@ -472,24 +503,28 @@ export default function App() {
     await eseguiInvio(form);
   }
 
-  async function eseguiInvio(datiForm) {
+  // Carica la foto scelta e restituisce l'URL pubblico, null se non c'e'
+  // nessuna foto, oppure false se il caricamento e' fallito (il chiamante
+  // in quel caso deve fermarsi: l'errore e' gia' stato mostrato).
+  async function caricaImmagine() {
+    if (!imageFile) return editingId ? editingImageUrl : null;
+    const ext = imageFile.name.split(".").pop();
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from("eventi-immagini").upload(path, imageFile);
+    if (error) {
+      setSubmitting(false);
+      setToast({ type: "error", msg: "Errore nel caricamento della foto: " + error.message });
+      setTimeout(() => setToast(null), 4000);
+      return false;
+    }
+    return supabase.storage.from("eventi-immagini").getPublicUrl(path).data.publicUrl;
+  }
+
+  async function eseguiInvio(datiForm, immagineGiaCaricata) {
     setSubmitting(true);
 
-    let immagine_url = editingId ? editingImageUrl : null;
-    if (imageFile) {
-      const ext = imageFile.name.split(".").pop();
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("eventi-immagini")
-        .upload(path, imageFile);
-      if (uploadError) {
-        setSubmitting(false);
-        setToast({ type: "error", msg: "Errore nel caricamento della foto: " + uploadError.message });
-        setTimeout(() => setToast(null), 4000);
-        return;
-      }
-      immagine_url = supabase.storage.from("eventi-immagini").getPublicUrl(path).data.publicUrl;
-    }
+    let immagine_url = immagineGiaCaricata !== undefined ? immagineGiaCaricata : await caricaImmagine();
+    if (immagine_url === false) return;
 
     // La mappa del luogo serve solo come fallback quando non c'e una foto caricata.
     // Se il luogo e stato scelto dal suggerimento Google Maps abbiamo gia le coordinate
@@ -501,7 +536,7 @@ export default function App() {
       ? { lat: datiForm.placeLat, lng: datiForm.placeLng }
       : await geocodeLuogo(datiForm.luogo);
 
-    const { prefissoTel, telefono, placeLat, placeLng, ...restForm } = datiForm;
+    const { prefissoTel, telefono, placeLat, placeLng, immagine_url: _imgBozza, ...restForm } = datiForm;
     const payload = {
       ...restForm,
       telefono: `${prefissoTel} ${telefono}`.trim(),
@@ -530,7 +565,7 @@ export default function App() {
     setSubmitting(false);
     if (error) {
       setToast({ type: "error", msg: "Errore nell'invio: " + error.message });
-      return;
+      return false;
     }
     const wasEditing = !!editingId;
     setForm(emptyForm);
@@ -539,6 +574,7 @@ export default function App() {
     setEditingId(null);
     setEditingImageUrl(null);
     setPolicyAccettata(false);
+    setPendingSubmit(false);
     setToast({
       type: "success",
       msg: wasEditing ? "Evento aggiornato." : "Evento inviato. Sara visibile dopo una rapida verifica.",
@@ -556,6 +592,7 @@ export default function App() {
         body: JSON.stringify({ eventoId: inserito.id }),
       }).catch(() => {});
     }
+    return true;
   }
 
   async function generaDescrizioneIA() {
@@ -852,6 +889,31 @@ export default function App() {
           </div>
         )}
       </header>
+
+      {confermaRicevuta && (
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6">
+          <div className="bg-white rounded-2xl shadow-lg p-5 sm:p-6 flex items-start gap-4">
+            <div className="shrink-0 w-10 h-10 rounded-full bg-[#FF8000]/15 flex items-center justify-center">
+              <ShieldCheck size={20} className="text-[#FF8000]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-lg font-bold text-[#1B2444] mb-1">Email confermata, grazie!</h2>
+              <p className="text-sm text-[#4A5578]">
+                Abbiamo ricevuto il tuo evento. Ora e' <strong>in attesa di conferma da parte
+                dell'amministratore</strong>: appena viene approvato compare in bacheca e lo vedono tutti.
+                Ti bastano pochi minuti di pazienza.
+              </p>
+            </div>
+            <button
+              onClick={() => setConfermaRicevuta(false)}
+              className="shrink-0 text-[#8A93AD] hover:text-[#1B2444] transition-colors"
+              aria-label="Chiudi"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6">
         <div>
@@ -1479,8 +1541,8 @@ function PublishForm({
         <div className="bg-white/10 border border-white/20 rounded-xl p-4 space-y-2">
           <p className="text-sm">
             Ti abbiamo inviato un'email di conferma a <strong>{pendingEmail}</strong>. Apri il link che trovi
-            dentro: il tuo evento verra' pubblicato automaticamente con i dati appena inseriti, anche se nel
-            frattempo chiudi questa pagina.
+            dentro — anche dal telefono o da un altro browser: i dati sono salvati e il tuo evento passera'
+            automaticamente in attesa di approvazione. Puoi chiudere questa pagina.
           </p>
         </div>
       ) : (
