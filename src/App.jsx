@@ -772,7 +772,7 @@ export default function App() {
                 className="shrink-0 inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 transition-colors rounded-full px-3 py-1.5 text-xs whitespace-nowrap"
               >
                 <span className="font-semibold">{titleCase(e.titolo)}</span>
-                <span className="text-white/70">
+                <span className="font-data text-white/70">
                   · {new Date(e.data).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
                 </span>
               </button>
@@ -929,12 +929,12 @@ export default function App() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
                       <div className="absolute top-3 left-3 flex items-center gap-1.5">
                         <span
-                          className="text-[10px] tracking-wider uppercase text-white px-2 py-1 rounded-full font-semibold"
+                          className="font-data text-[10px] tracking-wider uppercase text-white px-2 py-1 rounded-full font-semibold"
                           style={{ backgroundColor: style.accent }}
                         >
                           {e.categoria}
                         </span>
-                        <span className="text-[10px] tracking-wider uppercase bg-white text-[#4F5FEF] px-2 py-1 rounded-full">
+                        <span className="font-data text-[10px] tracking-wider uppercase bg-white text-[#4F5FEF] px-2 py-1 rounded-full">
                           {e.gratuito ? "Gratuito" : `€ ${Number(e.prezzo).toFixed(2)}`}
                         </span>
                       </div>
@@ -947,7 +947,7 @@ export default function App() {
                     <div className="p-5 pt-4">
                       <h3 className="font-display text-xl font-bold leading-snug mb-1.5">{titleCase(e.titolo)}</h3>
                       <div className="text-xs text-white/85 space-y-1 mb-3">
-                        <p className="flex items-center gap-1.5">
+                        <p className="font-data flex items-center gap-1.5">
                           <Calendar size={13} />
                           {new Date(e.data).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
                           {e.ora && (
@@ -1017,12 +1017,12 @@ export default function App() {
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <p className="font-semibold leading-snug">{e.titolo}</p>
                             {Number.isFinite(e.distanza_km) && (
-                              <span className="shrink-0 text-[10px] tracking-wide uppercase bg-white/20 rounded-full px-2 py-0.5">
+                              <span className="font-data shrink-0 text-[10px] tracking-wide uppercase bg-white/20 rounded-full px-2 py-0.5">
                                 {e.distanza_km < 1 ? "< 1 km" : `${e.distanza_km} km`}
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-white/75 mb-1">
+                          <p className="font-data text-xs text-white/75 mb-1">
                             {e.data} · {e.luogo}
                           </p>
                           {e.descrizione && <p className="text-xs text-white/70 mb-2">{e.descrizione}</p>}
@@ -1522,7 +1522,9 @@ function MyEventsList({ events, onEdit, onDelete, deletingId }) {
             <div className="min-w-0">
               <p className="font-semibold truncate">{e.titolo}</p>
               <p className="text-white/70">
-                {new Date(e.data).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                <span className="font-data">
+                  {new Date(e.data).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}
+                </span>
                 {" · "}
                 {e.verificato ? "Verificato" : "In attesa di verifica"}
               </p>

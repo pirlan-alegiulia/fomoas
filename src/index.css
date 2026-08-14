@@ -12,3 +12,6 @@ body {
   font-family: "Instrument Serif", serif;
   font-style: italic;
 }
+.font-data {
+  font-family: "Roboto Mono", ui-monospace, monospace;
+}
