@@ -31,10 +31,13 @@ export default async function handler(req, res) {
 
   try {
     const message = await client.messages.create({
-      model: "claude-opus-5",
+      // Sonnet invece di Opus: qui il compito e' cercare e riportare, non
+      // ragionare. Opus impiegava anche oltre due minuti e la funzione
+      // andava in timeout a meta' ricerca, lasciando l'utente senza nulla.
+      model: "claude-sonnet-5",
       max_tokens: 4000,
       output_config: { effort: "low" },
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }],
       system:
         `Oggi e il ${oggi}. Cerca sul web eventi reali in Italia (sagre, concerti, mercatini, sport, mostre, ` +
         `vita notturna, eventi per famiglie...) che corrispondano alla richiesta dell'utente, scritta in ` +

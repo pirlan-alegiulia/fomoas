@@ -242,6 +242,7 @@ export default function App() {
   const [aiEventIds, setAiEventIds] = useState(null);
   const [webEvents, setWebEvents] = useState(null);
   const [webLoading, setWebLoading] = useState(false);
+  const [webErrore, setWebErrore] = useState(false);
   const [soloGratuiti, setSoloGratuiti] = useState(false);
   const [vicinoA, setVicinoA] = useState(null);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
@@ -705,15 +706,20 @@ export default function App() {
   async function cercaSulWeb(richiesta) {
     setWebLoading(true);
     setWebEvents(null);
+    setWebErrore(false);
     try {
       const res = await fetch("/api/eventi-dal-web", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ richiesta }),
       });
+      if (!res.ok) throw new Error("richiesta fallita");
       const data = await res.json();
-      setWebEvents(res.ok && Array.isArray(data.eventi) ? data.eventi : []);
+      setWebEvents(Array.isArray(data.eventi) ? data.eventi : []);
     } catch {
+      // Distinguere il guasto dal "non c'e' nulla" evita di far credere che
+      // sul web non ci sia niente quando in realta' la ricerca non e' riuscita.
+      setWebErrore(true);
       setWebEvents([]);
     } finally {
       setWebLoading(false);
@@ -1338,6 +1344,19 @@ export default function App() {
                 </p>
                 {webLoading ? (
                   <p className="text-sm text-white/80">Sto cercando altre idee sul web, ci vuole qualche secondo...</p>
+                ) : webErrore ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm text-white/80">
+                      La ricerca sul web non e' andata a buon fine questa volta.
+                    </p>
+                    <button
+                      onClick={() => cercaSulWeb(query.trim())}
+                      disabled={!query.trim()}
+                      className="text-sm underline font-semibold disabled:opacity-50"
+                    >
+                      Riprova
+                    </button>
+                  </div>
                 ) : webEvents.length === 0 ? (
                   <p className="text-sm text-white/80">Nessuna altra idea trovata sul web per questa ricerca.</p>
                 ) : (
