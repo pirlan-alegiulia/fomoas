@@ -1272,7 +1272,7 @@ export default function App() {
                         </p>
                       </div>
                       {e.descrizione && <p className="text-sm text-white/85 mb-3 leading-relaxed">{e.descrizione}</p>}
-                      <div className="flex items-center justify-between text-xs pt-3 border-t border-white/30">
+                      <div className="flex items-center justify-between gap-3 text-xs pt-3 border-t border-white/30">
                         <a
                           href={e.link_verifica}
                           target="_blank"
@@ -1287,6 +1287,9 @@ export default function App() {
                         >
                           <Flag size={12} /> Segnala {e.reports > 0 ? `(${e.reports})` : ""}
                         </button>
+                      </div>
+                      <div className="text-xs pt-2.5">
+                        <DomandeEvento evento={e} />
                       </div>
                     </div>
                   </article>
@@ -1930,6 +1933,108 @@ function MyEventsList({ events, onEdit, onDelete, deletingId }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Domande veloci su un singolo evento. Le proposte pronte coprono le cose
+// che i dati sanno davvero dire; per tutto il resto l'IA risponde che il
+// dato non c'e' e rimanda alla fonte, invece di inventare.
+const DOMANDE_PRONTE = ["A che ora inizia?", "Si paga?", "Dove si trova esattamente?", "Adatto ai bambini?"];
+
+function DomandeEvento({ evento }) {
+  const [aperto, setAperto] = useState(false);
+  const [domanda, setDomanda] = useState("");
+  const [risposta, setRisposta] = useState("");
+  const [caricamento, setCaricamento] = useState(false);
+
+  async function chiedi(testo) {
+    const q = (testo ?? domanda).trim();
+    if (!q || caricamento) return;
+    setCaricamento(true);
+    setRisposta("");
+    try {
+      const res = await fetch("/api/domanda-evento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventoId: evento.id, domanda: q }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Errore nella richiesta");
+      setRisposta(data.risposta);
+    } catch (err) {
+      setRisposta("Non riesco a rispondere ora (" + err.message + ").");
+    } finally {
+      setCaricamento(false);
+      setDomanda("");
+    }
+  }
+
+  if (!aperto) {
+    return (
+      <button
+        onClick={() => setAperto(true)}
+        className="inline-flex items-center gap-1 text-white font-semibold hover:underline"
+      >
+        <Sparkles size={12} /> Chiedi
+      </button>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-2">
+        <span className="inline-flex items-center gap-1 font-semibold">
+          <Sparkles size={12} /> Chiedi su questo evento
+        </span>
+        <button
+          onClick={() => setAperto(false)}
+          className="text-white/70 hover:text-white"
+          aria-label="Chiudi"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {DOMANDE_PRONTE.map((d) => (
+          <button
+            key={d}
+            onClick={() => chiedi(d)}
+            disabled={caricamento}
+            className="rounded-full bg-white/20 hover:bg-white/30 px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50"
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+
+      <form
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          chiedi();
+        }}
+        className="flex gap-1.5"
+      >
+        <input
+          value={domanda}
+          onChange={(ev) => setDomanda(ev.target.value)}
+          placeholder="Oppure scrivi la tua domanda..."
+          maxLength={200}
+          className="flex-1 min-w-0 bg-white/90 text-[#1B2444] rounded-lg px-2.5 py-1.5 text-xs placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-white"
+        />
+        <button
+          type="submit"
+          disabled={caricamento || !domanda.trim()}
+          className="shrink-0 bg-white text-[#4D8AFF] rounded-lg px-2.5 py-1.5 disabled:opacity-40"
+          aria-label="Invia domanda"
+        >
+          <Send size={13} />
+        </button>
+      </form>
+
+      {caricamento && <p className="text-[11px] text-white/70 mt-2">Sto guardando i dati dell'evento...</p>}
+      {risposta && <p className="text-[11px] bg-white/15 rounded-lg px-2.5 py-2 mt-2 leading-relaxed">{risposta}</p>}
     </div>
   );
 }
