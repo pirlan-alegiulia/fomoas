@@ -743,17 +743,20 @@ export default function App() {
       }}
     >
       <header className="border-b border-white/25 px-5 py-6 sm:px-8">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <p className="text-xs tracking-[0.2em] uppercase text-white/80 mb-1">fomoas</p>
-            <h1 className="font-hero text-4xl sm:text-5xl">Cosa si fa stasera?</h1>
+            <h1 className="font-data text-3xl sm:text-5xl font-semibold">Cosa si fa stasera?</h1>
+            <p className="text-sm sm:text-base text-white/85 mt-2 max-w-md">
+              Smetti di chiederti cosa fare stasera. Rispondi all'IA, prendi le chiavi ed esci.
+            </p>
           </div>
           <button
             onClick={() => {
               if (editingId) handleCancelEdit();
               setShowForm(true);
             }}
-            className="lg:hidden shrink-0 inline-flex items-center gap-2 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE3B0] transition-colors"
+            className="lg:hidden self-start shrink-0 inline-flex items-center gap-2 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE3B0] transition-colors"
           >
             <Plus size={18} /> Pubblica evento
           </button>

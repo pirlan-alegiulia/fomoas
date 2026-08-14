@@ -8,10 +8,6 @@ body {
 .font-display {
   font-family: "Fraunces", serif;
 }
-.font-hero {
-  font-family: "Instrument Serif", serif;
-  font-style: italic;
-}
 .font-data {
   font-family: "Roboto Mono", ui-monospace, monospace;
 }
