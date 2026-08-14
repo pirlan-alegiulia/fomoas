@@ -10,6 +10,9 @@
   "functions": {
     "api/eventi-vicino-a-me.js": {
       "maxDuration": 150
+    },
+    "api/eventi-dal-web.js": {
+      "maxDuration": 120
     }
   }
 }

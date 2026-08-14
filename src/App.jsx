@@ -240,6 +240,8 @@ export default function App() {
   const [aiLoadingRicerca, setAiLoadingRicerca] = useState(false);
   const [aiRisposta, setAiRisposta] = useState("");
   const [aiEventIds, setAiEventIds] = useState(null);
+  const [webEvents, setWebEvents] = useState(null);
+  const [webLoading, setWebLoading] = useState(false);
   const [soloGratuiti, setSoloGratuiti] = useState(false);
   const [vicinoA, setVicinoA] = useState(null);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
@@ -677,6 +679,11 @@ export default function App() {
     setShowSuggestions(false);
     setAiLoadingRicerca(true);
     setAiRisposta("");
+
+    // La ricerca sul web parte in parallelo e vive di vita propria: e' molto
+    // piu' lenta, quindi non deve far aspettare i risultati gia' pubblicati.
+    cercaSulWeb(content);
+
     try {
       const res = await fetch("/api/assistente-ricerca", {
         method: "POST",
@@ -695,10 +702,29 @@ export default function App() {
     }
   }
 
+  async function cercaSulWeb(richiesta) {
+    setWebLoading(true);
+    setWebEvents(null);
+    try {
+      const res = await fetch("/api/eventi-dal-web", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ richiesta }),
+      });
+      const data = await res.json();
+      setWebEvents(res.ok && Array.isArray(data.eventi) ? data.eventi : []);
+    } catch {
+      setWebEvents([]);
+    } finally {
+      setWebLoading(false);
+    }
+  }
+
   function azzeraFiltri() {
     setQuery("");
     setAiEventIds(null);
     setAiRisposta("");
+    setWebEvents(null);
     setSoloGratuiti(false);
     setVicinoA(null);
     setCategoryFilter("Tutte");
@@ -1298,6 +1324,46 @@ export default function App() {
               </div>
                 )}
               </>
+            )}
+
+            {(webLoading || webEvents !== null) && (
+              <div className="mt-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles size={15} />
+                  <h2 className="font-display text-base font-semibold">Altre idee trovate sul web</h2>
+                </div>
+                <p className="text-xs text-white/70 mb-4">
+                  Non sono pubblicate su fomoas e non le abbiamo verificate: controlla sempre la fonte prima di
+                  andarci.
+                </p>
+                {webLoading ? (
+                  <p className="text-sm text-white/80">Sto cercando altre idee sul web, ci vuole qualche secondo...</p>
+                ) : webEvents.length === 0 ? (
+                  <p className="text-sm text-white/80">Nessuna altra idea trovata sul web per questa ricerca.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {webEvents.map((e, i) => (
+                      <div key={i} className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm">
+                        <p className="font-semibold leading-snug mb-1">{e.titolo}</p>
+                        <p className="font-data text-xs text-white/75 mb-1">
+                          {e.data} · {e.luogo}
+                        </p>
+                        {e.descrizione && <p className="text-xs text-white/70 mb-2">{e.descrizione}</p>}
+                        {e.fonte && (
+                          <a
+                            href={e.fonte}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-white font-semibold hover:underline"
+                          >
+                            <LinkIcon size={11} /> Fonte
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {nearbyEvents !== null && (
