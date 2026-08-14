@@ -1271,6 +1271,9 @@ export default function App() {
                           </a>
                         </p>
                       </div>
+                      <div className="mb-3">
+                        <DomandeEvento evento={e} />
+                      </div>
                       {e.descrizione && <p className="text-sm text-white/85 mb-3 leading-relaxed">{e.descrizione}</p>}
                       <div className="flex items-center justify-between gap-3 text-xs pt-3 border-t border-white/30">
                         <a
@@ -1287,9 +1290,6 @@ export default function App() {
                         >
                           <Flag size={12} /> Segnala {e.reports > 0 ? `(${e.reports})` : ""}
                         </button>
-                      </div>
-                      <div className="text-xs pt-2.5">
-                        <DomandeEvento evento={e} />
                       </div>
                     </div>
                   </article>
@@ -1974,15 +1974,15 @@ function DomandeEvento({ evento }) {
     return (
       <button
         onClick={() => setAperto(true)}
-        className="inline-flex items-center gap-1 text-white font-semibold hover:underline"
+        className="inline-flex items-center gap-1.5 rounded-full bg-white text-[#4D8AFF] px-3 py-1.5 text-xs font-bold shadow-sm hover:bg-[#EAF1FF] transition-colors"
       >
-        <Sparkles size={12} /> Chiedi
+        <Sparkles size={13} /> Chiedi all'IA
       </button>
     );
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full bg-white/10 border border-white/25 rounded-xl p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="inline-flex items-center gap-1 font-semibold">
           <Sparkles size={12} /> Chiedi su questo evento
