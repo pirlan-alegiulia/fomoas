@@ -243,6 +243,9 @@ export default function App() {
   const [webEvents, setWebEvents] = useState(null);
   const [webLoading, setWebLoading] = useState(false);
   const [webErrore, setWebErrore] = useState(false);
+  const [webAncoraLoading, setWebAncoraLoading] = useState(false);
+  const [webEsauriti, setWebEsauriti] = useState(false);
+  const [webRichiesta, setWebRichiesta] = useState("");
   const [soloGratuiti, setSoloGratuiti] = useState(false);
   const [vicinoA, setVicinoA] = useState(null);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
@@ -707,6 +710,8 @@ export default function App() {
     setWebLoading(true);
     setWebEvents(null);
     setWebErrore(false);
+    setWebEsauriti(false);
+    setWebRichiesta(richiesta);
     try {
       const res = await fetch("/api/eventi-dal-web", {
         method: "POST",
@@ -723,6 +728,33 @@ export default function App() {
       setWebEvents([]);
     } finally {
       setWebLoading(false);
+    }
+  }
+
+  // Il pulsante "Ancora": chiede due proposte in piu', passando i titoli gia'
+  // mostrati perche' non vengano ripetuti.
+  async function altreIdeeDalWeb() {
+    if (webAncoraLoading || !webRichiesta) return;
+    setWebAncoraLoading(true);
+    try {
+      const res = await fetch("/api/eventi-dal-web", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          richiesta: webRichiesta,
+          quanti: 2,
+          escludi: (webEvents || []).map((e) => e.titolo).filter(Boolean),
+        }),
+      });
+      if (!res.ok) throw new Error("richiesta fallita");
+      const data = await res.json();
+      const nuovi = Array.isArray(data.eventi) ? data.eventi : [];
+      if (nuovi.length === 0) setWebEsauriti(true);
+      else setWebEvents((prec) => [...(prec || []), ...nuovi]);
+    } catch {
+      setWebEsauriti(true);
+    } finally {
+      setWebAncoraLoading(false);
     }
   }
 
@@ -1363,6 +1395,7 @@ export default function App() {
                 ) : webEvents.length === 0 ? (
                   <p className="text-sm text-white/80">Nessuna altra idea trovata sul web per questa ricerca.</p>
                 ) : (
+                  <>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {webEvents.map((e, i) => (
                       <div key={i} className="bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm">
@@ -1384,6 +1417,23 @@ export default function App() {
                       </div>
                     ))}
                   </div>
+                  <div className="flex justify-center mt-4">
+                    {webEsauriti ? (
+                      <p className="text-xs text-white/70">
+                        Non ho trovato altre proposte diverse da queste per la tua ricerca.
+                      </p>
+                    ) : (
+                      <button
+                        onClick={altreIdeeDalWeb}
+                        disabled={webAncoraLoading}
+                        className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/25 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60"
+                      >
+                        <Sparkles size={14} className={webAncoraLoading ? "animate-pulse" : ""} />
+                        {webAncoraLoading ? "Cerco altre due..." : "Ancora"}
+                      </button>
+                    )}
+                  </div>
+                  </>
                 )}
               </div>
             )}

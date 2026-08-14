@@ -2,7 +2,9 @@
 // testo libero scritto nella barra di ricerca. Servono a non lasciare mai
 // l'utente a mani vuote: compaiono sempre DOPO gli eventi pubblicati, come
 // suggerimenti non verificati da noi.
-// Endpoint: POST /api/eventi-dal-web { richiesta }
+// Endpoint: POST /api/eventi-dal-web { richiesta, quanti?, escludi? }
+// "escludi" e' la lista dei titoli gia' mostrati: serve al pulsante "Ancora",
+// che chiede qualche proposta in piu' senza ripetere quelle gia' viste.
 
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -12,8 +14,10 @@ import Anthropic from "@anthropic-ai/sdk";
 // pulitamente e l'interfaccia propone "Riprova" all'utente.
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
 
-const QUANTI = 8;
+const QUANTI_DEFAULT = 8;
+const QUANTI_MAX = 8;
 const MAX_RICHIESTA = 300;
+const MAX_ESCLUSI = 40;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -25,11 +29,16 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { richiesta } = req.body || {};
+  const { richiesta, quanti, escludi } = req.body || {};
   if (typeof richiesta !== "string" || !richiesta.trim()) {
     res.status(400).json({ error: "Serve una richiesta." });
     return;
   }
+
+  const quantiRichiesti = Number.isInteger(quanti) && quanti > 0 ? Math.min(quanti, QUANTI_MAX) : QUANTI_DEFAULT;
+  const giaVisti = Array.isArray(escludi)
+    ? escludi.filter((t) => typeof t === "string" && t.trim()).slice(0, MAX_ESCLUSI)
+    : [];
 
   const oggi = new Date().toISOString().slice(0, 10);
 
@@ -52,10 +61,14 @@ export default async function handler(req, res) {
         `pubbliche, portali di eventi. Considera solo eventi la cui data e' oggi o nel futuro. Non inventare ` +
         `mai eventi che non hai trovato con la ricerca, e non riportare eventi di cui non hai una fonte. ` +
         `Sii rapido: fai poche ricerche mirate e rispondi con quello che hai trovato, fino a un massimo di ` +
-        `${QUANTI} eventi. Non insistere per arrivare a ${QUANTI} e non inventare mai nulla per riempire la ` +
-        `lista: meglio tre eventi veri consegnati in fretta che otto dopo una lunga attesa. ` +
+        `${quantiRichiesti} eventi. Non insistere per arrivare a ${quantiRichiesti} e non inventare mai nulla ` +
+        `per riempire la lista: meglio pochi eventi veri consegnati in fretta che tanti dopo una lunga attesa. ` +
+        (giaVisti.length
+          ? `L'utente ha gia' visto questi eventi, quindi NON riproporli e cercane di diversi: ` +
+            `${giaVisti.map((t) => `"${t}"`).join(", ")}. `
+          : "") +
         `Quando hai finito, rispondi SOLO con un array JSON valido (nessun testo prima o dopo, nessun blocco ` +
-        `di codice), con al massimo ${QUANTI} eventi, ciascuno con questa forma esatta: ` +
+        `di codice), con al massimo ${quantiRichiesti} eventi, ciascuno con questa forma esatta: ` +
         `{"titolo": string, "data": string leggibile es. "15 settembre 2026", "luogo": string (comune preciso), ` +
         `"descrizione": string breve (max 20 parole), "fonte": string url della pagina dove l'hai trovato}. ` +
         `Se non trovi nulla di pertinente e verificabile, rispondi con un array vuoto [].`,
@@ -84,7 +97,12 @@ export default async function handler(req, res) {
       eventi = [];
     }
 
-    res.status(200).json({ eventi: eventi.slice(0, QUANTI) });
+    // Rete di sicurezza: se il modello ripropone comunque qualcosa di gia'
+    // visto, lo togliamo qui invece di mostrare doppioni all'utente.
+    const visti = new Set(giaVisti.map((t) => t.toLowerCase().trim()));
+    const nuovi = eventi.filter((e) => e?.titolo && !visti.has(String(e.titolo).toLowerCase().trim()));
+
+    res.status(200).json({ eventi: nuovi.slice(0, quantiRichiesti) });
   } catch (err) {
     res.status(500).json({ error: err.message || "Errore nella ricerca." });
   }
