@@ -1344,8 +1344,8 @@ export default function App() {
                 </p>
                 {webLoading ? (
                   <p className="text-sm text-white/80">
-                    Sto cercando altre idee sul web, puo' richiedere fino a un paio di minuti. Intanto puoi
-                    guardare i risultati qui sopra.
+                    Sto cercando altre idee sul web, ci vuole qualche decina di secondi. Intanto puoi guardare i
+                    risultati qui sopra.
                   </p>
                 ) : webErrore ? (
                   <div className="flex flex-wrap items-center gap-3">

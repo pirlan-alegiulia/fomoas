@@ -41,16 +41,19 @@ export default async function handler(req, res) {
       model: "claude-sonnet-5",
       max_tokens: 4000,
       output_config: { effort: "low" },
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+      // Due ricerche soltanto: la priorita' e' che la risposta arrivi in
+      // fretta. Con quattro si arrivava piu' spesso a otto risultati, ma le
+      // attese superavano il minuto e a volte non arrivava nulla.
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }],
       system:
         `Oggi e il ${oggi}. Cerca sul web eventi reali in Italia (sagre, concerti, mercatini, sport, mostre, ` +
         `vita notturna, eventi per famiglie...) che corrispondano alla richiesta dell'utente, scritta in ` +
         `linguaggio naturale. Usa fonti attendibili: siti di comuni e pro loco, giornali locali, pagine social ` +
         `pubbliche, portali di eventi. Considera solo eventi la cui data e' oggi o nel futuro. Non inventare ` +
         `mai eventi che non hai trovato con la ricerca, e non riportare eventi di cui non hai una fonte. ` +
-        `Punta ad arrivare a ${QUANTI} eventi: se con la ricerca iniziale ne trovi meno, allarga ai comuni ` +
-        `vicini o a un periodo un po' piu' ampio e cerca ancora. Meglio pochi eventi veri che riempire la ` +
-        `lista: non inventare mai nulla pur di arrivare a ${QUANTI}. ` +
+        `Sii rapido: fai poche ricerche mirate e rispondi con quello che hai trovato, fino a un massimo di ` +
+        `${QUANTI} eventi. Non insistere per arrivare a ${QUANTI} e non inventare mai nulla per riempire la ` +
+        `lista: meglio tre eventi veri consegnati in fretta che otto dopo una lunga attesa. ` +
         `Quando hai finito, rispondi SOLO con un array JSON valido (nessun testo prima o dopo, nessun blocco ` +
         `di codice), con al massimo ${QUANTI} eventi, ciascuno con questa forma esatta: ` +
         `{"titolo": string, "data": string leggibile es. "15 settembre 2026", "luogo": string (comune preciso), ` +
@@ -62,10 +65,7 @@ export default async function handler(req, res) {
       // ricerca si dilunga preferiamo restituire un errore pulito, che
       // l'interfaccia sa mostrare con un "Riprova", invece di farci troncare
       // dal gateway con un 504 che al browser arriva come pagina HTML.
-      // Le ricerche riuscite stanno fra i 40 e i 130 secondi: oltre i 150
-      // conviene arrendersi e proporre "Riprova", invece di far aspettare
-      // quattro minuti per poi fallire comunque.
-      timeout: 150_000,
+      timeout: 90_000,
     });
 
     const testo = message.content
