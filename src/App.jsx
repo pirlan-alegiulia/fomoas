@@ -33,6 +33,7 @@ import { supabase } from "./supabaseClient";
 
 const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+const PENDING_KEY = "fomoas_evento_in_attesa";
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 
 // Identita' visiva per categoria: colore d'accento e illustrazione di
@@ -230,9 +231,6 @@ export default function App() {
   const [showLoginBox, setShowLoginBox] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
-  const [pendingCodice, setPendingCodice] = useState("");
-  const [pendingVerificando, setPendingVerificando] = useState(false);
-  const [pendingErrore, setPendingErrore] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingImageUrl, setEditingImageUrl] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -256,28 +254,24 @@ export default function App() {
     fetchMyEvents(session?.user?.id);
   }, [session]);
 
-  // Se l'utente ha compilato il form e confermato l'accesso via email
-  // (link o codice) mentre non era loggato, appena la sessione arriva
-  // completiamo automaticamente la pubblicazione senza fargli ricliccare.
+  // Se l'utente ha compilato il form e cliccato "Invia" mentre non era
+  // loggato, il click sul link nell'email ricarica la pagina da zero: lo
+  // stato in memoria (React) va perso. Per questo i dati del form vengono
+  // salvati in localStorage prima di mandare l'email, e recuperati qui
+  // appena la sessione arriva, per completare la pubblicazione da soli.
   useEffect(() => {
-    if (session && pendingSubmit) {
-      setPendingSubmit(false);
-      setPendingCodice("");
-      setPendingErrore("");
-      eseguiInvio();
+    if (!session) return;
+    const salvato = localStorage.getItem(PENDING_KEY);
+    if (!salvato) return;
+    localStorage.removeItem(PENDING_KEY);
+    try {
+      const { form: formSalvato } = JSON.parse(salvato);
+      if (formSalvato) eseguiInvio(formSalvato);
+    } catch {
+      // dati corrotti o scaduti: ignora silenziosamente
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
-
-  async function verificaPendingCodice(ev) {
-    ev.preventDefault();
-    if (!pendingCodice.trim()) return;
-    setPendingVerificando(true);
-    setPendingErrore("");
-    const { error } = await supabase.auth.verifyOtp({ email: pendingEmail, token: pendingCodice.trim(), type: "email" });
-    setPendingVerificando(false);
-    if (error) setPendingErrore("Codice non valido o scaduto. Riprova o apri il link nell'email.");
-  }
 
   async function fetchMyEvents(userId) {
     if (!userId) {
@@ -348,8 +342,6 @@ export default function App() {
     setErrors({});
     handleRemoveImage();
     setPendingSubmit(false);
-    setPendingCodice("");
-    setPendingErrore("");
   }
 
   async function handleDeleteMio(id) {
@@ -474,9 +466,17 @@ export default function App() {
     if (!validate()) return;
 
     if (!session) {
-      // Non ancora autenticato: chiediamo la conferma via email solo ora,
-      // a dati gia' inseriti. Appena arriva la sessione (link o codice),
-      // l'effetto sopra completa da solo la pubblicazione con questi dati.
+      // Non ancora autenticato: salviamo i dati del form prima di mandare
+      // l'email, perche' cliccare il link ricarica la pagina da zero e lo
+      // stato in memoria andrebbe perso. L'effetto sopra recupera questi
+      // dati da localStorage appena la sessione arriva e completa da solo
+      // la pubblicazione, anche se la pagina originale non e' piu' aperta.
+      try {
+        localStorage.setItem(PENDING_KEY, JSON.stringify({ form }));
+      } catch {
+        // storage pieno o non disponibile: si procede comunque, nel peggiore
+        // dei casi l'utente dovra' semplicemente reinviare dopo il login
+      }
       setAuthSending(true);
       const { error } = await supabase.auth.signInWithOtp({
         email: form.email,
@@ -484,6 +484,7 @@ export default function App() {
       });
       setAuthSending(false);
       if (error) {
+        localStorage.removeItem(PENDING_KEY);
         setToast({ type: "error", msg: "Errore nell'invio dell'email: " + error.message });
         setTimeout(() => setToast(null), 4000);
         return;
@@ -493,10 +494,10 @@ export default function App() {
       return;
     }
 
-    await eseguiInvio();
+    await eseguiInvio(form);
   }
 
-  async function eseguiInvio() {
+  async function eseguiInvio(datiForm) {
     setSubmitting(true);
 
     let immagine_url = editingId ? editingImageUrl : null;
@@ -518,14 +519,14 @@ export default function App() {
     // La mappa del luogo serve solo come fallback quando non c'e una foto caricata.
     // Se il luogo e stato scelto dal suggerimento Google Maps abbiamo gia le coordinate
     // esatte, altrimenti proviamo a geocodificare il testo inserito manualmente
-    const hasPlaceCoords = Number.isFinite(form.placeLat) && Number.isFinite(form.placeLng);
+    const hasPlaceCoords = Number.isFinite(datiForm.placeLat) && Number.isFinite(datiForm.placeLng);
     const coords = immagine_url
       ? null
       : hasPlaceCoords
-      ? { lat: form.placeLat, lng: form.placeLng }
-      : await geocodeLuogo(form.luogo);
+      ? { lat: datiForm.placeLat, lng: datiForm.placeLng }
+      : await geocodeLuogo(datiForm.luogo);
 
-    const { prefissoTel, telefono, placeLat, placeLng, ...restForm } = form;
+    const { prefissoTel, telefono, placeLat, placeLng, ...restForm } = datiForm;
     const payload = {
       ...restForm,
       telefono: `${prefissoTel} ${telefono}`.trim(),
@@ -774,11 +775,6 @@ export default function App() {
     setPolicyAccettata,
     pendingSubmit,
     pendingEmail,
-    pendingCodice,
-    setPendingCodice,
-    onVerifyPendingCodice: verificaPendingCodice,
-    pendingVerificando,
-    pendingErrore,
     authSending,
   };
 
@@ -1212,11 +1208,6 @@ function PublishForm({
   setPolicyAccettata,
   pendingSubmit,
   pendingEmail,
-  pendingCodice,
-  setPendingCodice,
-  onVerifyPendingCodice,
-  pendingVerificando,
-  pendingErrore,
   authSending,
 }) {
   const luogoInputRef = useRef(null);
@@ -1496,31 +1487,12 @@ function PublishForm({
       </div>
 
       {pendingSubmit ? (
-        <div className="bg-white/10 border border-white/20 rounded-xl p-4 space-y-3">
+        <div className="bg-white/10 border border-white/20 rounded-xl p-4 space-y-2">
           <p className="text-sm">
-            Ti abbiamo inviato un link di conferma a <strong>{pendingEmail}</strong>. Aprilo per pubblicare
-            l'evento con i dati appena inseriti — oppure inserisci qui il codice a 6 cifre che trovi nella
-            stessa email.
+            Ti abbiamo inviato un'email di conferma a <strong>{pendingEmail}</strong>. Apri il link che trovi
+            dentro: il tuo evento verra' pubblicato automaticamente con i dati appena inseriti, anche se nel
+            frattempo chiudi questa pagina.
           </p>
-          <form onSubmit={onVerifyPendingCodice} className="flex gap-2">
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={pendingCodice}
-              onChange={(e) => setPendingCodice(e.target.value.replace(/\D/g, ""))}
-              placeholder="123456"
-              className="flex-1 min-w-0 bg-white border border-white text-[#1B2444] rounded-xl px-3.5 py-2.5 text-sm text-center tracking-[0.3em] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
-            />
-            <button
-              type="submit"
-              disabled={pendingVerificando}
-              className="shrink-0 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
-            >
-              {pendingVerificando ? "..." : "Verifica"}
-            </button>
-          </form>
-          {pendingErrore && <p className="text-xs text-red-100 bg-red-500/30 rounded-lg px-2.5 py-1.5">{pendingErrore}</p>}
         </div>
       ) : (
         <>
