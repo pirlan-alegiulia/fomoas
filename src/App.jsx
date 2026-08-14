@@ -505,24 +505,28 @@ export default function App() {
     const payload = {
       ...restForm,
       telefono: `${prefissoTel} ${telefono}`.trim(),
-      ora: form.ora || null,
-      prezzo: form.gratuito ? null : Number(form.prezzo),
+      ora: datiForm.ora || null,
+      prezzo: datiForm.gratuito ? null : Number(datiForm.prezzo),
       immagine_url,
       luogo_lat: coords?.lat ?? null,
       luogo_lng: coords?.lng ?? null,
     };
 
-    const { error } = editingId
+    const { data: inserito, error } = editingId
       ? await supabase.from("eventi").update(payload).eq("id", editingId)
-      : await supabase.from("eventi").insert([
-          {
-            ...payload,
-            reports: 0,
-            verificato: false,
-            user_id: session.user.id,
-            policy_accettata_at: new Date().toISOString(),
-          },
-        ]);
+      : await supabase
+          .from("eventi")
+          .insert([
+            {
+              ...payload,
+              reports: 0,
+              verificato: false,
+              user_id: session.user.id,
+              policy_accettata_at: new Date().toISOString(),
+            },
+          ])
+          .select("id")
+          .single();
     setSubmitting(false);
     if (error) {
       setToast({ type: "error", msg: "Errore nell'invio: " + error.message });
@@ -542,6 +546,16 @@ export default function App() {
     setTimeout(() => setToast(null), 4000);
     fetchEvents();
     fetchMyEvents(session.user.id);
+    if (!wasEditing && inserito?.id) {
+      // Avvisa l'admin via email che c'e' un nuovo evento da verificare.
+      // Fire-and-forget: se fallisce non deve bloccare ne' mostrare errori
+      // a chi ha appena pubblicato l'evento.
+      fetch("/api/notifica-nuovo-evento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventoId: inserito.id }),
+      }).catch(() => {});
+    }
   }
 
   async function generaDescrizioneIA() {
