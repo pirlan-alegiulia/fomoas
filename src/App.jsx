@@ -26,6 +26,8 @@ import {
   Palette,
   Users,
   Moon,
+  Map as MapIcon,
+  LayoutGrid,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -216,6 +218,7 @@ export default function App() {
   const [nearbyEvents, setNearbyEvents] = useState(null);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyLuogo, setNearbyLuogo] = useState("");
+  const [viewMode, setViewMode] = useState("griglia");
   const [nearbyVisibleCount, setNearbyVisibleCount] = useState(8);
   const [session, setSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -747,7 +750,7 @@ export default function App() {
           <div>
             <p className="text-xs tracking-[0.2em] uppercase text-white/80 mb-1">fomoas</p>
             <h1 className="font-data text-3xl sm:text-5xl font-semibold">Cosa si fa stasera?</h1>
-            <p className="text-sm sm:text-base text-white/85 mt-2 max-w-md">
+            <p className="font-data text-sm sm:text-base text-white/85 mt-2 max-w-md">
               Smetti di chiederti cosa fare stasera. Rispondi all'IA, prendi le chiavi ed esci.
             </p>
           </div>
@@ -756,7 +759,7 @@ export default function App() {
               if (editingId) handleCancelEdit();
               setShowForm(true);
             }}
-            className="lg:hidden self-start shrink-0 inline-flex items-center gap-2 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE3B0] transition-colors"
+            className="self-start shrink-0 inline-flex items-center gap-2 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE3B0] transition-colors"
           >
             <Plus size={18} /> Pubblica evento
           </button>
@@ -784,7 +787,7 @@ export default function App() {
         )}
       </header>
 
-      <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6 lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 lg:items-start">
+      <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6">
         <div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -861,7 +864,7 @@ export default function App() {
             <button
               onClick={trovaEventiVicino}
               disabled={nearbyLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold bg-white text-[#FF8000] hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold bg-[#4F5FEF] text-white shadow-lg hover:bg-[#4351D6] transition-colors disabled:opacity-60"
             >
               <LocateFixed size={16} />
               {nearbyLoading ? "Cerco..." : "Trova eventi vicino a me"}
@@ -901,7 +904,31 @@ export default function App() {
                 <p className="text-sm text-white/80">Pubblica il primo evento per iniziare a riempirla.</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <>
+                <div className="flex justify-end mb-4">
+                  <div className="inline-flex bg-white/15 rounded-xl p-1 gap-1">
+                    <button
+                      onClick={() => setViewMode("griglia")}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        viewMode === "griglia" ? "bg-white text-[#FF8000]" : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      <LayoutGrid size={14} /> Griglia
+                    </button>
+                    <button
+                      onClick={() => setViewMode("mappa")}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        viewMode === "mappa" ? "bg-white text-[#FF8000]" : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      <MapIcon size={14} /> Mappa
+                    </button>
+                  </div>
+                </div>
+                {viewMode === "mappa" ? (
+                  <MapView events={filtered} />
+                ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filtered.map((e) => {
                   const style = categoryStyle(e.categoria);
                   const CategoryIcon = style.icon;
@@ -993,6 +1020,8 @@ export default function App() {
                   );
                 })}
               </div>
+                )}
+              </>
             )}
 
             {nearbyEvents !== null && (
@@ -1058,22 +1087,10 @@ export default function App() {
             )}
           </main>
         </div>
-
-        <aside className="hidden lg:block sticky top-6 mb-8">
-          <div className="bg-[#4D8AFF] text-white border border-white/25 rounded-2xl overflow-hidden">
-            <div className="flex items-center gap-2 px-6 py-4 border-b border-white/25">
-              <Sparkles size={16} />
-              <h2 className="font-display text-lg font-semibold">
-                {editingId ? "Modifica evento" : "Pubblica un evento con l'IA"}
-              </h2>
-            </div>
-            {publishPanelContent}
-          </div>
-        </aside>
       </div>
 
       {showForm && (
-        <div className="lg:hidden fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-6">
+        <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-6">
           <div className="bg-[#4D8AFF] text-white border border-white/25 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/25 sticky top-0 bg-[#4D8AFF]">
               <h2 className="font-display text-lg font-semibold">
@@ -1429,6 +1446,112 @@ function PublishForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function MapView({ events }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const mapboxglRef = useRef(null);
+  const markersRef = useRef([]);
+  const [pronta, setPronta] = useState(false);
+  const [erroreCaricamento, setErroreCaricamento] = useState(false);
+
+  // mapbox-gl e' una libreria pesante: la carichiamo solo quando la vista
+  // mappa viene effettivamente aperta, non nel bundle principale del sito.
+  useEffect(() => {
+    if (!MAPBOX_TOKEN || !containerRef.current) return;
+    let cancellato = false;
+    Promise.all([import("mapbox-gl"), import("mapbox-gl/dist/mapbox-gl.css")])
+      .then(([mod]) => {
+        if (cancellato) return;
+        const mapboxgl = mod.default;
+        mapboxgl.accessToken = MAPBOX_TOKEN;
+        mapboxglRef.current = mapboxgl;
+        const map = new mapboxgl.Map({
+          container: containerRef.current,
+          style: "mapbox://styles/mapbox/streets-v11",
+          center: [12.5, 43.5],
+          zoom: 5,
+        });
+        map.addControl(new mapboxgl.NavigationControl(), "top-right");
+        mapRef.current = map;
+        setPronta(true);
+      })
+      .catch(() => setErroreCaricamento(true));
+    return () => {
+      cancellato = true;
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const mapboxgl = mapboxglRef.current;
+    if (!map || !mapboxgl) return;
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+    const conCoordinate = events.filter((e) => Number.isFinite(e.luogo_lat) && Number.isFinite(e.luogo_lng));
+    if (conCoordinate.length === 0) return;
+
+    const applica = () => {
+      const bounds = new mapboxgl.LngLatBounds();
+      conCoordinate.forEach((e) => {
+        const style = categoryStyle(e.categoria);
+        const el = document.createElement("div");
+        el.style.width = "26px";
+        el.style.height = "26px";
+        el.style.borderRadius = "50%";
+        el.style.background = style.accent;
+        el.style.border = "2.5px solid white";
+        el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.35)";
+        el.style.cursor = "pointer";
+        const popup = new mapboxgl.Popup({ offset: 16 }).setHTML(
+          `<strong>${titleCase(e.titolo)}</strong><br/><span style="font-size:12px;color:#555;">${e.luogo}</span>`
+        );
+        const marker = new mapboxgl.Marker(el).setLngLat([e.luogo_lng, e.luogo_lat]).setPopup(popup).addTo(map);
+        markersRef.current.push(marker);
+        bounds.extend([e.luogo_lng, e.luogo_lat]);
+      });
+      if (conCoordinate.length > 1) {
+        map.fitBounds(bounds, { padding: 60, maxZoom: 13 });
+      } else {
+        map.flyTo({ center: [conCoordinate[0].luogo_lng, conCoordinate[0].luogo_lat], zoom: 11 });
+      }
+    };
+
+    if (map.isStyleLoaded()) applica();
+    else map.once("load", applica);
+  }, [events, pronta]);
+
+  if (!MAPBOX_TOKEN || erroreCaricamento) {
+    return (
+      <div className="flex items-center justify-center h-96 bg-white/10 border border-white/20 rounded-2xl text-sm text-white/70">
+        Mappa non disponibile.
+      </div>
+    );
+  }
+
+  const senzaCoordinate = events.filter((e) => !Number.isFinite(e.luogo_lat) || !Number.isFinite(e.luogo_lng)).length;
+
+  return (
+    <div>
+      <div className="relative h-[420px] w-full rounded-2xl overflow-hidden border border-white/20">
+        <div ref={containerRef} className="h-full w-full" />
+        {!pronta && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/10 text-sm text-white/80">
+            Carico la mappa...
+          </div>
+        )}
+      </div>
+      {senzaCoordinate > 0 && (
+        <p className="text-xs text-white/70 mt-2">
+          {senzaCoordinate} event{senzaCoordinate === 1 ? "o" : "i"} senza una posizione precisa non{" "}
+          {senzaCoordinate === 1 ? "compare" : "compaiono"} in mappa.
+        </p>
+      )}
+    </div>
   );
 }
 
