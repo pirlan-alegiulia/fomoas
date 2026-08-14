@@ -12,7 +12,7 @@
       "maxDuration": 150
     },
     "api/eventi-dal-web.js": {
-      "maxDuration": 120
+      "maxDuration": 300
     }
   }
 }
