@@ -227,6 +227,12 @@ export default function App() {
   const [authSent, setAuthSent] = useState(false);
   const [policyAccettata, setPolicyAccettata] = useState(false);
   const [myEvents, setMyEvents] = useState([]);
+  const [showLoginBox, setShowLoginBox] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingCodice, setPendingCodice] = useState("");
+  const [pendingVerificando, setPendingVerificando] = useState(false);
+  const [pendingErrore, setPendingErrore] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingImageUrl, setEditingImageUrl] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -249,6 +255,29 @@ export default function App() {
   useEffect(() => {
     fetchMyEvents(session?.user?.id);
   }, [session]);
+
+  // Se l'utente ha compilato il form e confermato l'accesso via email
+  // (link o codice) mentre non era loggato, appena la sessione arriva
+  // completiamo automaticamente la pubblicazione senza fargli ricliccare.
+  useEffect(() => {
+    if (session && pendingSubmit) {
+      setPendingSubmit(false);
+      setPendingCodice("");
+      setPendingErrore("");
+      eseguiInvio();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  async function verificaPendingCodice(ev) {
+    ev.preventDefault();
+    if (!pendingCodice.trim()) return;
+    setPendingVerificando(true);
+    setPendingErrore("");
+    const { error } = await supabase.auth.verifyOtp({ email: pendingEmail, token: pendingCodice.trim(), type: "email" });
+    setPendingVerificando(false);
+    if (error) setPendingErrore("Codice non valido o scaduto. Riprova o apri il link nell'email.");
+  }
 
   async function fetchMyEvents(userId) {
     if (!userId) {
@@ -318,6 +347,9 @@ export default function App() {
     setForm(emptyForm);
     setErrors({});
     handleRemoveImage();
+    setPendingSubmit(false);
+    setPendingCodice("");
+    setPendingErrore("");
   }
 
   async function handleDeleteMio(id) {
@@ -412,6 +444,7 @@ export default function App() {
     if (!form.gratuito) {
       const p = Number(form.prezzo);
       if (!form.prezzo || Number.isNaN(p) || p <= 0) e.prezzo = "Inserisci un prezzo valido";
+      else if (p > 999999.99) e.prezzo = "Il prezzo massimo e 999.999,99 €";
     }
     if (!form.organizzatore.trim()) e.organizzatore = "Inserisci chi organizza";
     if (!isValidEmail(form.email)) e.email = "Email non valida";
@@ -438,8 +471,32 @@ export default function App() {
 
   async function handleSubmit(ev) {
     ev.preventDefault();
-    if (!session) return;
     if (!validate()) return;
+
+    if (!session) {
+      // Non ancora autenticato: chiediamo la conferma via email solo ora,
+      // a dati gia' inseriti. Appena arriva la sessione (link o codice),
+      // l'effetto sopra completa da solo la pubblicazione con questi dati.
+      setAuthSending(true);
+      const { error } = await supabase.auth.signInWithOtp({
+        email: form.email,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      setAuthSending(false);
+      if (error) {
+        setToast({ type: "error", msg: "Errore nell'invio dell'email: " + error.message });
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      setPendingEmail(form.email);
+      setPendingSubmit(true);
+      return;
+    }
+
+    await eseguiInvio();
+  }
+
+  async function eseguiInvio() {
     setSubmitting(true);
 
     let immagine_url = editingId ? editingImageUrl : null;
@@ -715,25 +772,49 @@ export default function App() {
     onCancelEdit: handleCancelEdit,
     policyAccettata,
     setPolicyAccettata,
+    pendingSubmit,
+    pendingEmail,
+    pendingCodice,
+    setPendingCodice,
+    onVerifyPendingCodice: verificaPendingCodice,
+    pendingVerificando,
+    pendingErrore,
+    authSending,
   };
 
   const publishPanelContent = !authChecked ? (
     <div className="p-6 text-sm text-white/80">Caricamento...</div>
-  ) : session ? (
+  ) : (
     <>
-      <div className="flex items-center justify-between px-6 pt-4 text-xs text-white/80">
-        <span className="truncate">Accesso come {session.user.email}</span>
-        <button onClick={signOut} className="underline font-semibold shrink-0 ml-2">
-          Esci
-        </button>
-      </div>
+      {session && (
+        <div className="flex items-center justify-between px-6 pt-4 text-xs text-white/80">
+          <span className="truncate">Accesso come {session.user.email}</span>
+          <button onClick={signOut} className="underline font-semibold shrink-0 ml-2">
+            Esci
+          </button>
+        </div>
+      )}
       <PublishForm {...formProps} />
-      {myEvents.length > 0 && (
+      {session && myEvents.length > 0 && (
         <MyEventsList events={myEvents} onEdit={handleEditClick} onDelete={handleDeleteMio} deletingId={deletingId} />
       )}
+      {!session && !pendingSubmit && (
+        <div className="px-6 pb-5 -mt-1">
+          <button
+            type="button"
+            onClick={() => setShowLoginBox((v) => !v)}
+            className="text-xs text-white/70 underline"
+          >
+            Hai gia' pubblicato un evento? Accedi per gestirlo
+          </button>
+          {showLoginBox && (
+            <div className="mt-3 -mx-6">
+              <LoginBox email={authEmail} setEmail={setAuthEmail} onSend={sendMagicLink} sending={authSending} sent={authSent} />
+            </div>
+          )}
+        </div>
+      )}
     </>
-  ) : (
-    <LoginBox email={authEmail} setEmail={setAuthEmail} onSend={sendMagicLink} sending={authSending} sent={authSent} />
   );
 
   return (
@@ -756,7 +837,7 @@ export default function App() {
           </div>
           <button
             onClick={() => {
-              if (editingId) handleCancelEdit();
+              if (editingId || pendingSubmit) handleCancelEdit();
               setShowForm(true);
             }}
             className="self-start shrink-0 inline-flex items-center gap-2 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE3B0] transition-colors"
@@ -1129,6 +1210,14 @@ function PublishForm({
   onCancelEdit,
   policyAccettata,
   setPolicyAccettata,
+  pendingSubmit,
+  pendingEmail,
+  pendingCodice,
+  setPendingCodice,
+  onVerifyPendingCodice,
+  pendingVerificando,
+  pendingErrore,
+  authSending,
 }) {
   const luogoInputRef = useRef(null);
   const autocompleteServiceRef = useRef(null);
@@ -1406,45 +1495,82 @@ function PublishForm({
         </Field>
       </div>
 
-      {!editing && (
-        <div>
-          <label className="flex items-start gap-2 text-xs text-white/90">
+      {pendingSubmit ? (
+        <div className="bg-white/10 border border-white/20 rounded-xl p-4 space-y-3">
+          <p className="text-sm">
+            Ti abbiamo inviato un link di conferma a <strong>{pendingEmail}</strong>. Aprilo per pubblicare
+            l'evento con i dati appena inseriti — oppure inserisci qui il codice a 6 cifre che trovi nella
+            stessa email.
+          </p>
+          <form onSubmit={onVerifyPendingCodice} className="flex gap-2">
             <input
-              type="checkbox"
-              checked={policyAccettata}
-              onChange={(e) => setPolicyAccettata(e.target.checked)}
-              className="mt-0.5"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={pendingCodice}
+              onChange={(e) => setPendingCodice(e.target.value.replace(/\D/g, ""))}
+              placeholder="123456"
+              className="flex-1 min-w-0 bg-white border border-white text-[#1B2444] rounded-xl px-3.5 py-2.5 text-sm text-center tracking-[0.3em] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
             />
-            <span>
-              Accetto i{" "}
-              <a href="/policy" target="_blank" rel="noopener noreferrer" className="underline font-semibold">
-                Termini e la Privacy Policy
-              </a>{" "}
-              di fomoas.
-            </span>
-          </label>
-          {errors.policy && <p className="text-xs text-red-100 bg-red-500/30 rounded-lg px-2.5 py-1.5 mt-1.5">{errors.policy}</p>}
+            <button
+              type="submit"
+              disabled={pendingVerificando}
+              className="shrink-0 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
+            >
+              {pendingVerificando ? "..." : "Verifica"}
+            </button>
+          </form>
+          {pendingErrore && <p className="text-xs text-red-100 bg-red-500/30 rounded-lg px-2.5 py-1.5">{pendingErrore}</p>}
         </div>
-      )}
+      ) : (
+        <>
+          {!editing && (
+            <div>
+              <label className="flex items-start gap-2 text-xs text-white/90">
+                <input
+                  type="checkbox"
+                  checked={policyAccettata}
+                  onChange={(e) => setPolicyAccettata(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Accetto i{" "}
+                  <a href="/policy" target="_blank" rel="noopener noreferrer" className="underline font-semibold">
+                    Termini e la Privacy Policy
+                  </a>{" "}
+                  di fomoas.
+                </span>
+              </label>
+              {errors.policy && <p className="text-xs text-red-100 bg-red-500/30 rounded-lg px-2.5 py-1.5 mt-1.5">{errors.policy}</p>}
+            </div>
+          )}
 
-      <div className="flex gap-2">
-        {editing && (
-          <button
-            type="button"
-            onClick={onCancelEdit}
-            className="flex-1 bg-white/15 text-white font-semibold py-3 rounded-xl hover:bg-white/25 transition-colors"
-          >
-            Annulla
-          </button>
-        )}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex-1 bg-white text-[#FF8000] font-semibold py-3 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
-        >
-          {submitting ? "Invio in corso..." : editing ? "Aggiorna evento" : "Invia per la verifica"}
-        </button>
-      </div>
+          <div className="flex gap-2">
+            {editing && (
+              <button
+                type="button"
+                onClick={onCancelEdit}
+                className="flex-1 bg-white/15 text-white font-semibold py-3 rounded-xl hover:bg-white/25 transition-colors"
+              >
+                Annulla
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={submitting || authSending}
+              className="flex-1 bg-white text-[#FF8000] font-semibold py-3 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
+            >
+              {submitting
+                ? "Invio in corso..."
+                : authSending
+                ? "Invio email di conferma..."
+                : editing
+                ? "Aggiorna evento"
+                : "Invia per la verifica"}
+            </button>
+          </div>
+        </>
+      )}
     </form>
   );
 }
