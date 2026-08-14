@@ -60,6 +60,8 @@ export default async function handler(req, res) {
         `linguaggio naturale. Usa fonti attendibili: siti di comuni e pro loco, giornali locali, pagine social ` +
         `pubbliche, portali di eventi. Considera solo eventi la cui data e' oggi o nel futuro. Non inventare ` +
         `mai eventi che non hai trovato con la ricerca, e non riportare eventi di cui non hai una fonte. ` +
+        `Ogni evento va elencato una volta sola: se lo trovi su piu' fonti o con nomi leggermente diversi, ` +
+        `scegli la versione migliore e scarta le altre. ` +
         `Sii rapido: fai poche ricerche mirate e rispondi con quello che hai trovato, fino a un massimo di ` +
         `${quantiRichiesti} eventi. Non insistere per arrivare a ${quantiRichiesti} e non inventare mai nulla ` +
         `per riempire la lista: meglio pochi eventi veri consegnati in fretta che tanti dopo una lunga attesa. ` +
@@ -97,10 +99,34 @@ export default async function handler(req, res) {
       eventi = [];
     }
 
-    // Rete di sicurezza: se il modello ripropone comunque qualcosa di gia'
-    // visto, lo togliamo qui invece di mostrare doppioni all'utente.
-    const visti = new Set(giaVisti.map((t) => t.toLowerCase().trim()));
-    const nuovi = eventi.filter((e) => e?.titolo && !visti.has(String(e.titolo).toLowerCase().trim()));
+    // Rete di sicurezza contro i doppioni: il modello a volte ripete lo stesso
+    // evento due o tre volte nella stessa risposta (trovato su fonti diverse),
+    // oltre a riproporre quelli gia' visti. Il confronto ignora maiuscole,
+    // punteggiatura e parole di servizio, perche' lo stesso mercatino compare
+    // come "Mercatino dell'Antiquariato di Lucca" o "Mercato Antiquario Lucca".
+    const chiave = (t) =>
+      String(t)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((p) => p && !["di", "del", "della", "dell", "de", "il", "la", "lo", "e"].includes(p))
+        // Solo la radice di ogni parola: "mercatino"/"mercato" e
+        // "antiquariato"/"antiquario"/"antiquaria" sono lo stesso evento.
+        .map((p) => p.slice(0, 6))
+        .sort()
+        .join(" ");
+
+    const visti = new Set(giaVisti.map(chiave));
+    const nuovi = [];
+    for (const e of eventi) {
+      if (!e?.titolo) continue;
+      const k = chiave(e.titolo);
+      if (visti.has(k)) continue;
+      visti.add(k);
+      nuovi.push(e);
+    }
 
     res.status(200).json({ eventi: nuovi.slice(0, quantiRichiesti) });
   } catch (err) {
