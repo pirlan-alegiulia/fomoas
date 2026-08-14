@@ -12,7 +12,6 @@ import {
   ChevronDown,
   Sparkles,
   ImagePlus,
-  MessageCircle,
   Mic,
   MicOff,
   Send,
@@ -33,6 +32,37 @@ import { supabase } from "./supabaseClient";
 import { buildEventJsonLd } from "../lib/eventoSchema.js";
 
 const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
+
+// Esempi che ruotano nella barra di ricerca: servono a far capire al volo
+// che si puo' scrivere in linguaggio naturale, non solo parole chiave.
+const ESEMPI_RICERCA = [
+  "Cosa si fa stasera vicino a me?",
+  "Una sagra nel weekend con i bambini",
+  "Concerti gratis questo mese",
+  "Qualcosa da fare domenica pomeriggio",
+  "Mercatini dell'antiquariato in zona",
+];
+
+// Filtri rapidi: tutti locali e istantanei, non consumano credito IA
+const CHIP_RAPIDI = [
+  { label: "🍷 Sagre & Cibo", tipo: "categoria", valore: "Sagra" },
+  { label: "🎸 Musica dal vivo", tipo: "categoria", valore: "Musica" },
+  { label: "🚗 Entro 15 km", tipo: "vicino" },
+  { label: "🆓 Eventi Gratis", tipo: "gratis" },
+];
+
+const RAGGIO_CHIP_KM = 15;
+
+// Distanza in chilometri tra due coordinate (formula dell'emisenoverso)
+function distanzaKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const rad = (d) => (d * Math.PI) / 180;
+  const dLat = rad(lat2 - lat1);
+  const dLng = rad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 
@@ -207,11 +237,12 @@ export default function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
+  const [aiLoadingRicerca, setAiLoadingRicerca] = useState(false);
+  const [aiRisposta, setAiRisposta] = useState("");
   const [aiEventIds, setAiEventIds] = useState(null);
+  const [soloGratuiti, setSoloGratuiti] = useState(false);
+  const [vicinoA, setVicinoA] = useState(null);
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef(null);
   const speechSupported =
@@ -240,6 +271,13 @@ export default function App() {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  // Gli esempi nella barra ruotano finche' l'utente non inizia a scrivere
+  useEffect(() => {
+    if (query) return;
+    const t = setInterval(() => setPlaceholderIdx((i) => (i + 1) % ESEMPI_RICERCA.length), 3800);
+    return () => clearInterval(t);
+  }, [query]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -631,30 +669,69 @@ export default function App() {
     }
   }
 
-  async function sendChatMessage(testo) {
-    const content = (testo ?? chatInput).trim();
-    if (!content || chatLoading) return;
-    const nuoviMessaggi = [...chatMessages, { role: "user", content }];
-    setChatMessages(nuoviMessaggi);
-    setChatInput("");
-    setChatLoading(true);
+  // L'IA parte solo qui, cioe' su invio esplicito (Enter o click): mentre si
+  // digita il filtro resta quello locale, istantaneo e a costo zero.
+  async function chiediAllaIA(testo) {
+    const content = (testo ?? query).trim();
+    if (!content || aiLoadingRicerca) return;
+    setShowSuggestions(false);
+    setAiLoadingRicerca(true);
+    setAiRisposta("");
     try {
       const res = await fetch("/api/assistente-ricerca", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nuoviMessaggi }),
+        body: JSON.stringify({ messages: [{ role: "user", content }] }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Errore nella richiesta");
-      setChatMessages((m) => [...m, { role: "assistant", content: data.risposta }]);
+      setAiRisposta(data.risposta || "");
       setAiEventIds(Array.isArray(data.eventi) ? data.eventi : []);
     } catch (err) {
-      setChatMessages((m) => [
-        ...m,
-        { role: "assistant", content: "Mi dispiace, non riesco a rispondere ora (" + err.message + ")." },
-      ]);
+      setAiRisposta("Non riesco a rispondere ora (" + err.message + "). Intanto puoi cercare a mano.");
+      setAiEventIds(null);
     } finally {
-      setChatLoading(false);
+      setAiLoadingRicerca(false);
+    }
+  }
+
+  function azzeraFiltri() {
+    setQuery("");
+    setAiEventIds(null);
+    setAiRisposta("");
+    setSoloGratuiti(false);
+    setVicinoA(null);
+    setCategoryFilter("Tutte");
+  }
+
+  function attivaChip(chip) {
+    setAiEventIds(null);
+    setAiRisposta("");
+    if (chip.tipo === "categoria") {
+      setCategoryFilter((c) => (c === chip.valore ? "Tutte" : chip.valore));
+      return;
+    }
+    if (chip.tipo === "gratis") {
+      setSoloGratuiti((g) => !g);
+      return;
+    }
+    if (chip.tipo === "vicino") {
+      if (vicinoA) {
+        setVicinoA(null);
+        return;
+      }
+      if (!navigator.geolocation) {
+        setToast({ type: "error", msg: "Il tuo browser non supporta la geolocalizzazione." });
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setVicinoA({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {
+          setToast({ type: "error", msg: "Non riesco a leggere la tua posizione." });
+          setTimeout(() => setToast(null), 3000);
+        }
+      );
     }
   }
 
@@ -671,8 +748,8 @@ export default function App() {
     recognition.maxAlternatives = 1;
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
-      setChatInput(transcript);
-      sendChatMessage(transcript);
+      setQuery(transcript);
+      chiediAllaIA(transcript);
     };
     recognition.onend = () => setListening(false);
     recognition.onerror = (event) => {
@@ -758,6 +835,12 @@ export default function App() {
     const queryStems = queryWords.map(stem);
     return events
       .filter((e) => categoryFilter === "Tutte" || e.categoria === categoryFilter)
+      .filter((e) => !soloGratuiti || e.gratuito)
+      .filter((e) => {
+        if (!vicinoA) return true;
+        if (!Number.isFinite(e.luogo_lat) || !Number.isFinite(e.luogo_lng)) return false;
+        return distanzaKm(vicinoA.lat, vicinoA.lng, e.luogo_lat, e.luogo_lng) <= RAGGIO_CHIP_KM;
+      })
       .filter((e) => {
         if (!queryWords.length) return true;
         const haystack = [e.titolo, e.luogo, e.descrizione, e.categoria, e.organizzatore]
@@ -765,7 +848,7 @@ export default function App() {
           .join(" ");
         return matchesQuery(haystack, queryWords, queryStems);
       });
-  }, [events, query, categoryFilter, aiEventIds]);
+  }, [events, query, categoryFilter, aiEventIds, soloGratuiti, vicinoA]);
 
   // Suggerimenti mentre si digita: titoli, luoghi e categorie che combaciano
   // con la query (anche al plurale/singolare), utili quando la ricerca esatta non trova nulla
@@ -918,20 +1001,49 @@ export default function App() {
       <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6">
         <div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FF8000]" />
+            <form
+              className="relative flex-1"
+              onSubmit={(e) => {
+                e.preventDefault();
+                chiediAllaIA();
+              }}
+            >
+              <Sparkles size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FF8000]" />
               <input
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setShowSuggestions(true);
                   setAiEventIds(null);
+                  setAiRisposta("");
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="Cerca per nome, luogo, tipo di evento..."
-                className="w-full bg-white border border-white text-[#1B2444] rounded-xl pl-10 pr-4 py-3 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
+                placeholder={listening ? "Ti ascolto..." : ESEMPI_RICERCA[placeholderIdx]}
+                className="w-full bg-white border border-white text-[#1B2444] rounded-xl pl-10 pr-24 py-3 text-sm placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
               />
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {speechSupported && (
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    className={`p-2 rounded-lg transition-colors ${
+                      listening ? "bg-[#FF5252] text-white" : "text-[#4D8AFF] hover:bg-[#F1F5F9]"
+                    }`}
+                    aria-label={listening ? "Ferma ascolto" : "Cerca a voce"}
+                  >
+                    {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={!query.trim() || aiLoadingRicerca}
+                  className="p-2 rounded-lg bg-[#4D8AFF] text-white hover:bg-[#3A72E6] transition-colors disabled:opacity-40"
+                  aria-label="Chiedi all'IA"
+                >
+                  {aiLoadingRicerca ? <Sparkles size={16} className="animate-pulse" /> : <Send size={16} />}
+                </button>
+              </div>
               {showSuggestions && suggestions.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E2E8F0] rounded-xl overflow-hidden shadow-xl z-10">
                   {suggestions.map((s) => (
@@ -950,13 +1062,14 @@ export default function App() {
                   ))}
                 </div>
               )}
-            </div>
+            </form>
             <div className="relative">
               <select
                 value={categoryFilter}
                 onChange={(e) => {
                   setCategoryFilter(e.target.value);
                   setAiEventIds(null);
+                  setAiRisposta("");
                 }}
                 className="appearance-none bg-white border border-white text-[#1B2444] rounded-xl pl-4 pr-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
               >
@@ -966,28 +1079,6 @@ export default function App() {
                 ))}
               </select>
               <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF8000] pointer-events-none" />
-            </div>
-            <div className="relative">
-              <button
-                onClick={() => setChatOpen((o) => !o)}
-                className={`h-full w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
-                  chatOpen ? "bg-white text-[#4D8AFF]" : "bg-[#4D8AFF] text-white hover:bg-[#3A72E6]"
-                }`}
-              >
-                {chatOpen ? <X size={16} /> : <MessageCircle size={16} />}
-                Chiedi all'IA
-              </button>
-              <AiChatPanel
-                open={chatOpen}
-                messages={chatMessages}
-                input={chatInput}
-                setInput={setChatInput}
-                onSend={() => sendChatMessage()}
-                loading={chatLoading}
-                listening={listening}
-                onToggleMic={toggleListening}
-                micSupported={speechSupported}
-              />
             </div>
             <button
               onClick={trovaEventiVicino}
@@ -999,6 +1090,31 @@ export default function App() {
             </button>
           </div>
 
+          <div className="flex flex-wrap gap-2 mt-3">
+            {CHIP_RAPIDI.map((chip) => {
+              const attivo =
+                chip.tipo === "categoria"
+                  ? categoryFilter === chip.valore
+                  : chip.tipo === "gratis"
+                  ? soloGratuiti
+                  : !!vicinoA;
+              return (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => attivaChip(chip)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-colors ${
+                    attivo
+                      ? "bg-white text-[#4F5FEF] border-white shadow-sm"
+                      : "bg-white/15 text-white border-white/30 hover:bg-white/25"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+
           <main className="py-8">
             {nearbyLoading && (
               <div className="mb-5 flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-sm">
@@ -1006,15 +1122,28 @@ export default function App() {
                 Sto cercando eventi sul web vicino a te, può richiedere fino a due minuti...
               </div>
             )}
-            {aiEventIds !== null && (
-              <div className="mb-5 flex items-center justify-between gap-3 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-sm">
-                <span className="inline-flex items-center gap-1.5">
-                  <Sparkles size={14} />
-                  {aiEventIds.length > 0
-                    ? `L'IA ha trovato ${aiEventIds.length} event${aiEventIds.length === 1 ? "o" : "i"} per te.`
-                    : "L'IA non ha trovato eventi pertinenti."}
+            {aiLoadingRicerca && (
+              <div className="mb-5 flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-4 py-2.5 text-sm">
+                <Sparkles size={14} className="animate-pulse" />
+                Sto leggendo la tua richiesta e cerco gli eventi giusti...
+              </div>
+            )}
+            {!aiLoadingRicerca && (aiEventIds !== null || aiRisposta) && (
+              <div className="mb-5 flex items-start justify-between gap-3 bg-white/15 border border-white/25 rounded-xl px-4 py-3 text-sm">
+                <span className="flex items-start gap-2 min-w-0">
+                  <Sparkles size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    {aiRisposta}
+                    {aiEventIds !== null && (
+                      <span className="block text-white/70 mt-1">
+                        {aiEventIds.length > 0
+                          ? `${aiEventIds.length} event${aiEventIds.length === 1 ? "o" : "i"} qui sotto.`
+                          : "Nessun evento corrispondente in bacheca."}
+                      </span>
+                    )}
+                  </span>
                 </span>
-                <button onClick={() => setAiEventIds(null)} className="underline font-semibold shrink-0">
+                <button onClick={azzeraFiltri} className="underline font-semibold shrink-0">
                   Mostra tutti
                 </button>
               </div>
@@ -1028,8 +1157,24 @@ export default function App() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-16 border border-dashed border-white/50 rounded-2xl">
-                <p className="font-display text-lg mb-1">La bacheca e ancora vuota qui</p>
-                <p className="text-sm text-white/80">Pubblica il primo evento per iniziare a riempirla.</p>
+                {events.length === 0 ? (
+                  <>
+                    <p className="font-display text-lg mb-1">La bacheca e ancora vuota qui</p>
+                    <p className="text-sm text-white/80">Pubblica il primo evento per iniziare a riempirla.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-display text-lg mb-1">Nessun evento con questi filtri</p>
+                    <p className="text-sm text-white/80">
+                      {query.trim()
+                        ? "Premi Invio per chiedere all'IA: capisce anche le richieste scritte a parole tue."
+                        : "Prova a togliere qualche filtro."}
+                    </p>
+                    <button onClick={azzeraFiltri} className="text-sm underline font-semibold mt-3">
+                      Mostra tutti gli eventi
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <>
@@ -1705,55 +1850,14 @@ function MapView({ events }) {
 }
 
 function LoginBox({ email, setEmail, onSend, sending, sent }) {
-  const [codice, setCodice] = useState("");
-  const [verificando, setVerificando] = useState(false);
-  const [erroreCodice, setErroreCodice] = useState("");
-
-  async function verificaCodice(ev) {
-    ev.preventDefault();
-    if (!codice.trim()) return;
-    setVerificando(true);
-    setErroreCodice("");
-    const { error } = await supabase.auth.verifyOtp({ email, token: codice.trim(), type: "email" });
-    setVerificando(false);
-    if (error) setErroreCodice("Codice non valido o scaduto. Riprova o richiedi un nuovo link.");
-  }
-
   if (sent) {
     return (
-      <div className="p-6 text-sm text-white/90 space-y-3">
-        <div>
-          <p className="font-semibold">Controlla la tua email</p>
-          <p>
-            Ti abbiamo inviato un link di accesso a <strong>{email}</strong>. Aprilo per accedere e pubblicare il
-            tuo evento.
-          </p>
-        </div>
-        <div className="pt-2 border-t border-white/25">
-          <p className="text-xs text-white/80 mb-2">
-            Il link non funziona (capita spesso con Apple Mail su iPhone)? Nella stessa email trovi anche un
-            codice a 6 cifre: inseriscilo qui.
-          </p>
-          <form onSubmit={verificaCodice} className="flex gap-2">
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={codice}
-              onChange={(e) => setCodice(e.target.value.replace(/\D/g, ""))}
-              placeholder="123456"
-              className="flex-1 min-w-0 bg-white border border-white text-[#1B2444] rounded-xl px-3.5 py-2.5 text-sm text-center tracking-[0.3em] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
-            />
-            <button
-              type="submit"
-              disabled={verificando}
-              className="shrink-0 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
-            >
-              {verificando ? "..." : "Verifica"}
-            </button>
-          </form>
-          {erroreCodice && <p className="text-xs text-red-100 bg-red-500/30 rounded-lg px-2.5 py-1.5 mt-2">{erroreCodice}</p>}
-        </div>
+      <div className="p-6 text-sm text-white/90 space-y-2">
+        <p className="font-semibold">Controlla la tua email</p>
+        <p>
+          Ti abbiamo inviato un link di accesso a <strong>{email}</strong>. Aprilo per accedere ai tuoi
+          eventi — va bene anche da un altro dispositivo.
+        </p>
       </div>
     );
   }
@@ -1844,102 +1948,4 @@ function inputCls(error) {
   return `w-full bg-white border ${
     error ? "border-[#DC2626]" : "border-white"
   } rounded-lg px-3.5 py-2.5 text-sm text-[#1B2444] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#FF8000]`;
-}
-
-function AiChatPanel({
-  open,
-  messages,
-  input,
-  setInput,
-  onSend,
-  loading,
-  listening,
-  onToggleMic,
-  micSupported,
-}) {
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading, open]);
-
-  if (!open) return null;
-
-  return (
-    <div className="absolute right-0 top-full mt-2 z-40 w-[calc(100vw-2.5rem)] sm:w-96 h-[28rem] bg-white text-[#1B2444] rounded-2xl shadow-2xl border border-[#E2E8F0] flex flex-col overflow-hidden">
-      <div className="bg-[#4D8AFF] text-white px-4 py-3 flex items-center gap-2 shrink-0">
-        <Sparkles size={16} />
-        <h3 className="font-display font-semibold text-sm">Non sai cosa cercare? Chiedimelo</h3>
-      </div>
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {messages.length === 0 && (
-          <>
-            <p className="text-xs text-[#64748B]">
-              Prova a chiedere ad esempio "cosa c'è stasera con i bambini?" oppure "eventi gratis vicino a Modena"
-              {micSupported ? " — oppure premi il microfono e parlami." : "."}
-            </p>
-            {!micSupported && (
-              <p className="text-xs text-[#94A3B8]">
-                Il microfono qui non è disponibile: su Safari e iPhone il browser non supporta ancora il
-                riconoscimento vocale. Funziona su Chrome (desktop e Android).
-              </p>
-            )}
-          </>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
-                m.role === "user" ? "bg-[#FF8000] text-white" : "bg-[#F1F5F9] text-[#1B2444]"
-              }`}
-            >
-              {m.content}
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-[#F1F5F9] text-[#64748B] rounded-xl px-3 py-2 text-sm">Sto cercando...</div>
-          </div>
-        )}
-      </div>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSend();
-        }}
-        className="border-t border-[#E2E8F0] p-3 flex items-center gap-2 shrink-0"
-      >
-        {micSupported && (
-          <button
-            type="button"
-            onClick={onToggleMic}
-            className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-              listening ? "bg-[#FF5252] text-white" : "bg-[#F1F5F9] text-[#4D8AFF] hover:bg-[#E2E8F0]"
-            }`}
-            aria-label={listening ? "Ferma ascolto" : "Parla con l'assistente"}
-          >
-            {listening ? <MicOff size={16} /> : <Mic size={16} />}
-          </button>
-        )}
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={listening ? "Ti ascolto..." : "Scrivi o parla..."}
-          className="flex-1 min-w-0 bg-[#F1F5F9] rounded-full px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4D8AFF]"
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="shrink-0 w-9 h-9 rounded-full bg-[#FF8000] text-white flex items-center justify-center disabled:opacity-40"
-          aria-label="Invia"
-        >
-          <Send size={15} />
-        </button>
-      </form>
-    </div>
-  );
 }
