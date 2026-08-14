@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       model: "claude-sonnet-5",
       max_tokens: 4000,
       output_config: { effort: "low" },
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }],
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
       system:
         `Oggi e il ${oggi}. Cerca sul web eventi reali in Italia (sagre, concerti, mercatini, sport, mostre, ` +
         `vita notturna, eventi per famiglie...) che corrispondano alla richiesta dell'utente, scritta in ` +
@@ -53,6 +53,12 @@ export default async function handler(req, res) {
         `"descrizione": string breve (max 20 parole), "fonte": string url della pagina dove l'hai trovato}. ` +
         `Se non trovi nulla di pertinente e verificabile, rispondi con un array vuoto [].`,
       messages: [{ role: "user", content: richiesta.trim().slice(0, MAX_RICHIESTA) }],
+    }, {
+      // Tetto di tempo sotto il limite della funzione su Vercel (120s): se la
+      // ricerca si dilunga preferiamo restituire un errore pulito, che
+      // l'interfaccia sa mostrare con un "Riprova", invece di farci troncare
+      // dal gateway con un 504 che al browser arriva come pagina HTML.
+      timeout: 85_000,
     });
 
     const testo = message.content
