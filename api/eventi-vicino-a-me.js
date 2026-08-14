@@ -36,12 +36,21 @@ export default async function handler(req, res) {
   const raggio = Number.isFinite(raggioKm) && raggioKm > 0 ? raggioKm : 50;
 
   try {
-    // Prima passata veloce; se non trova nulla (capita, soprattutto per
-    // paesi piccoli con poca presenza online) riprova una volta sola con
-    // un budget di ricerca piu' ampio, invece di arrendersi subito.
+    // Prima passata veloce; se i risultati sono pochi o nulli (capita,
+    // soprattutto per paesi piccoli con poca presenza online) riprova con
+    // un budget di ricerca piu' ampio e unisce i risultati (senza doppioni)
+    // invece di scartare quello che aveva gia' trovato.
     let eventi = await cercaEventiViaAI(luogo, raggio, 4);
-    if (eventi.length === 0) {
-      eventi = await cercaEventiViaAI(luogo, raggio, 8);
+    if (eventi.length < 4) {
+      const extra = await cercaEventiViaAI(luogo, raggio, 8);
+      const visti = new Set(eventi.map((e) => (e.titolo || "").toLowerCase().trim()));
+      for (const e of extra) {
+        const chiave = (e.titolo || "").toLowerCase().trim();
+        if (!visti.has(chiave)) {
+          eventi.push(e);
+          visti.add(chiave);
+        }
+      }
     }
     const candidati = eventi;
 
