@@ -34,13 +34,16 @@ export default async function handler(req, res) {
       model: "claude-opus-5",
       max_tokens: 4000,
       output_config: { effort: "low" },
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
       system:
         `Oggi e il ${oggi}. Cerca sul web eventi reali in Italia (sagre, concerti, mercatini, sport, mostre, ` +
         `vita notturna, eventi per famiglie...) che corrispondano alla richiesta dell'utente, scritta in ` +
         `linguaggio naturale. Usa fonti attendibili: siti di comuni e pro loco, giornali locali, pagine social ` +
         `pubbliche, portali di eventi. Considera solo eventi la cui data e' oggi o nel futuro. Non inventare ` +
         `mai eventi che non hai trovato con la ricerca, e non riportare eventi di cui non hai una fonte. ` +
+        `Punta ad arrivare a ${QUANTI} eventi: se con la ricerca iniziale ne trovi meno, allarga ai comuni ` +
+        `vicini o a un periodo un po' piu' ampio e cerca ancora. Meglio pochi eventi veri che riempire la ` +
+        `lista: non inventare mai nulla pur di arrivare a ${QUANTI}. ` +
         `Quando hai finito, rispondi SOLO con un array JSON valido (nessun testo prima o dopo, nessun blocco ` +
         `di codice), con al massimo ${QUANTI} eventi, ciascuno con questa forma esatta: ` +
         `{"titolo": string, "data": string leggibile es. "15 settembre 2026", "luogo": string (comune preciso), ` +
