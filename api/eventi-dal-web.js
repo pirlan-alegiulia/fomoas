@@ -62,7 +62,10 @@ export default async function handler(req, res) {
       // ricerca si dilunga preferiamo restituire un errore pulito, che
       // l'interfaccia sa mostrare con un "Riprova", invece di farci troncare
       // dal gateway con un 504 che al browser arriva come pagina HTML.
-      timeout: 240_000,
+      // Le ricerche riuscite stanno fra i 40 e i 130 secondi: oltre i 150
+      // conviene arrendersi e proporre "Riprova", invece di far aspettare
+      // quattro minuti per poi fallire comunque.
+      timeout: 150_000,
     });
 
     const testo = message.content
