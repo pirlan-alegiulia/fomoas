@@ -79,7 +79,7 @@ export default async function handler(req) {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          justifyContent: formatoPost ? "flex-start" : "space-between",
+          justifyContent: "space-between",
           backgroundImage: SFONDO,
           padding: formatoPost ? 72 : 60,
           fontFamily: "sans-serif",
@@ -113,33 +113,40 @@ export default async function handler(req) {
         )
       ),
 
-      // Nel formato verticale c'e' molto spazio in mezzo: lo riempie la foto
-      // dell'evento, se c'e'. Senza foto resterebbe un vuoto imbarazzante,
-      // quindi in quel caso il blocco non compare e il testo si ricentra.
-      formatoPost && e.immagine_url
-        ? h(
-            "div",
-            {
-              style: {
-                display: "flex",
-                flexGrow: 1,
-                marginTop: 36,
-                marginBottom: 36,
-                borderRadius: 28,
-                overflow: "hidden",
-              },
-            },
-            h("img", {
-              src: e.immagine_url,
-              style: { width: "100%", height: "100%", objectFit: "cover" },
-            })
-          )
-        : h("div", { style: { display: "flex", flexGrow: formatoPost ? 1 : 0 } }),
-
-      // Corpo: titolo e dati essenziali
+      // Corpo. Nel formato verticale occupa tutto lo spazio fra intestazione
+      // e piede e si centra: senza questo il testo restava incollato a un
+      // bordo lasciando meta' locandina vuota. Se l'evento ha una foto, la
+      // foto sta sopra al testo e assorbe lo spazio in eccesso.
       h(
         "div",
-        { style: { display: "flex", flexDirection: "column" } },
+        {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            flexGrow: formatoPost ? 1 : 0,
+            paddingTop: formatoPost ? 40 : 0,
+            paddingBottom: formatoPost ? 40 : 0,
+          },
+        },
+        formatoPost && e.immagine_url
+          ? h(
+              "div",
+              {
+                style: {
+                  display: "flex",
+                  height: 420,
+                  marginBottom: 40,
+                  borderRadius: 28,
+                  overflow: "hidden",
+                },
+              },
+              h("img", {
+                src: e.immagine_url,
+                style: { width: "100%", height: "100%", objectFit: "cover" },
+              })
+            )
+          : null,
         h(
           "div",
           {
