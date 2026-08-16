@@ -222,6 +222,7 @@ export default function App() {
   const [showLoginBox, setShowLoginBox] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingCambioAccount, setPendingCambioAccount] = useState(false);
   const [confermaRicevuta, setConfermaRicevuta] = useState(false);
   const [eventoPubblicato, setEventoPubblicato] = useState(null);
   const bozzaElaborataRef = useRef(null);
@@ -463,9 +464,28 @@ export default function App() {
     ev.preventDefault();
     if (!validate()) return;
 
-    if (!session) {
-      // Non ancora autenticato: la bozza va salvata sul database, non nel
-      // browser. Il link di conferma viene quasi sempre aperto altrove
+    // L'email dell'evento deve essere di chi la sta usando. Essere loggati
+    // non basta: senza questo controllo si potrebbe pubblicare indicando il
+    // contatto di un altro, che non avrebbe mai modo di accorgersene. Se
+    // l'indirizzo e' diverso da quello dell'accesso si passa comunque dalla
+    // conferma via email, esattamente come chi non e' autenticato.
+    const emailAccount = session?.user?.email?.trim().toLowerCase();
+    const emailEvento = form.email.trim().toLowerCase();
+    const serveConferma = !session || emailAccount !== emailEvento;
+
+    // In modifica non si cambia l'intestatario: l'evento resta legato
+    // all'indirizzo con cui e' stato confermato.
+    if (editingId && serveConferma) {
+      setErrors((prec) => ({
+        ...prec,
+        email: `Puoi usare solo l'email del tuo accesso (${session?.user?.email ?? "—"})`,
+      }));
+      return;
+    }
+
+    if (serveConferma) {
+      // La bozza va salvata sul database, non nel browser: il link di
+      // conferma viene quasi sempre aperto altrove
       // (app di posta, altro dispositivo), dove il localStorage di questa
       // pagina non esiste: i dati sarebbero irrecuperabili. Sul database
       // invece la bozza e' leggibile da qualunque browser, ma solo da chi
@@ -495,6 +515,7 @@ export default function App() {
         return;
       }
       setPendingEmail(form.email);
+      setPendingCambioAccount(!!session);
       setPendingSubmit(true);
       return;
     }
@@ -906,6 +927,7 @@ export default function App() {
     setPolicyAccettata,
     pendingSubmit,
     pendingEmail,
+    pendingCambioAccount,
     authSending,
   };
 
@@ -1552,6 +1574,7 @@ function PublishForm({
   setPolicyAccettata,
   pendingSubmit,
   pendingEmail,
+  pendingCambioAccount,
   authSending,
 }) {
   const luogoInputRef = useRef(null);
@@ -1837,6 +1860,12 @@ function PublishForm({
             dentro — anche dal telefono o da un altro browser: i dati sono salvati e il tuo evento passera'
             automaticamente in attesa di approvazione. Puoi chiudere questa pagina.
           </p>
+          {pendingCambioAccount && (
+            <p className="text-xs text-white/80">
+              Hai indicato un'email diversa da quella del tuo accesso: serve confermare che sia tua. Aprendo il
+              link entrerai con quell'indirizzo.
+            </p>
+          )}
         </div>
       ) : (
         <>
