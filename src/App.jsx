@@ -1221,17 +1221,20 @@ export default function App() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-16 border border-dashed border-white/50 rounded-2xl">
-                {webLoading || webEvents !== null ? (
-                  // C'e' una ricerca in rete in corso o gia' conclusa: invece di
-                  // lasciare l'utente davanti a un vicolo cieco, gli diciamo che
+                {webLoading || (webEvents !== null && webEvents.length > 0) ? (
+                  // C'e' una ricerca in rete in corso o andata a buon fine: invece
+                  // di lasciare l'utente davanti a un vicolo cieco, gli diciamo che
                   // qui non c'e' nulla ma che sotto trova comunque delle proposte.
+                  // Se invece la ricerca e' fallita o non ha trovato niente non
+                  // promettiamo nulla: sotto c'e' gia' il messaggio che lo spiega.
                   <>
                     <p className="font-display text-lg mb-1">
                       Su fomoas non ci sono ancora eventi per questa ricerca
                     </p>
                     <p className="text-sm text-white/80 max-w-lg mx-auto">
-                      Nessuno li ha ancora pubblicati qui. Nel frattempo l'IA ne ha cercati in rete alcuni che
-                      potrebbero fare al caso tuo: li trovi qui sotto.
+                      {webLoading
+                        ? "Nessuno li ha ancora pubblicati qui. Intanto l'IA sta cercando in rete qualche alternativa per te: la trovi qui sotto."
+                        : "Nessuno li ha ancora pubblicati qui. Nel frattempo l'IA ne ha cercati in rete alcuni che potrebbero fare al caso tuo: li trovi qui sotto."}
                     </p>
                     <p className="text-white/60 mt-3" aria-hidden="true">
                       ↓
@@ -1394,8 +1397,8 @@ export default function App() {
                 </p>
                 {webLoading ? (
                   <p className="text-sm text-white/80">
-                    Sto cercando altre idee sul web, ci vuole qualche decina di secondi. Intanto puoi guardare i
-                    risultati qui sopra.
+                    Sto cercando idee in rete, ci vuole qualche decina di secondi.
+                    {filtered.length > 0 && " Intanto puoi guardare i risultati qui sopra."}
                   </p>
                 ) : webErrore ? (
                   <div className="flex flex-wrap items-center gap-3">
