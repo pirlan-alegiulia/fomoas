@@ -15,8 +15,10 @@ import {
   Check,
   Ticket,
   User,
+  Download,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import PannelloSocial from "./PannelloSocial";
 import {
   categoryStyle,
   titleCase,
@@ -233,6 +235,8 @@ export default function EventPage({ id }) {
             )}
           </div>
         </article>
+
+        <PannelloSocial evento={evento} />
 
         <p className="text-center text-xs text-white/70 mt-6">
           Le informazioni sono fornite dall'organizzatore. Controlla la fonte prima di metterti in viaggio.

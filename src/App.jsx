@@ -22,6 +22,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import PannelloSocial from "./PannelloSocial";
 import { buildEventJsonLd } from "../lib/eventoSchema.js";
 import {
   CATEGORIES,
@@ -222,6 +223,7 @@ export default function App() {
   const [pendingSubmit, setPendingSubmit] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
   const [confermaRicevuta, setConfermaRicevuta] = useState(false);
+  const [eventoPubblicato, setEventoPubblicato] = useState(null);
   const bozzaElaborataRef = useRef(null);
   const [editingId, setEditingId] = useState(null);
   const [editingImageUrl, setEditingImageUrl] = useState(null);
@@ -557,7 +559,7 @@ export default function App() {
               policy_accettata_at: new Date().toISOString(),
             },
           ])
-          .select("id")
+          .select("*")
           .single();
     setSubmitting(false);
     if (error) {
@@ -579,6 +581,9 @@ export default function App() {
     setTimeout(() => setToast(null), 4000);
     fetchEvents();
     fetchMyEvents(session.user.id);
+    // Appena pubblicato gli mettiamo in mano la locandina: e' il momento in
+    // cui ha piu' voglia di far girare l'evento, non giorni dopo.
+    if (!wasEditing && inserito?.id) setEventoPubblicato(inserito);
     if (!wasEditing && inserito?.id) {
       // Avvisa l'admin via email che c'e' un nuovo evento da verificare.
       // Fire-and-forget: se fallisce non deve bloccare ne' mostrare errori
@@ -989,6 +994,30 @@ export default function App() {
           </div>
         )}
       </header>
+
+      {eventoPubblicato && (
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6">
+          <div className="bg-white/10 border border-white/25 rounded-2xl p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="font-display text-lg font-bold mb-1">Evento ricevuto, grazie!</h2>
+                <p className="text-sm text-white/85">
+                  E' in attesa di approvazione: appena verificato compare in bacheca. Intanto puoi gia' farlo
+                  girare.
+                </p>
+              </div>
+              <button
+                onClick={() => setEventoPubblicato(null)}
+                className="shrink-0 text-white/70 hover:text-white transition-colors"
+                aria-label="Chiudi"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <PannelloSocial evento={eventoPubblicato} />
+          </div>
+        </div>
+      )}
 
       {confermaRicevuta && (
         <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6">

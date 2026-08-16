@@ -92,14 +92,32 @@ async function renderEventPage(id, siteUrl) {
 
   const jsonLd = buildEventJsonLd(e, siteUrl);
 
+  // Riassunto per l'anteprima social: se manca la descrizione componiamo
+  // comunque una frase con i dati che contano (quando, dove, quanto).
+  const descrizioneSocial =
+    e.descrizione ||
+    `${fmtData(e.data)}${e.ora ? ` alle ${String(e.ora).slice(0, 5)}` : ""} a ${e.luogo}. ${prezzoLabel(e)}.`;
+
   return `<!doctype html>
 <html lang="it">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${esc(e.titolo)} — ${esc(e.luogo)} — fomoas</title>
-<meta name="description" content="${esc(e.descrizione || `${e.titolo} a ${e.luogo} il ${fmtData(e.data)}.`)}" />
+<meta name="description" content="${esc(descrizioneSocial)}" />
 <link rel="canonical" href="${siteUrl}/evento/${e.id}" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="fomoas" />
+<meta property="og:title" content="${esc(e.titolo)}" />
+<meta property="og:description" content="${esc(descrizioneSocial)}" />
+<meta property="og:url" content="${siteUrl}/evento/${e.id}" />
+<meta property="og:image" content="${siteUrl}/api/locandina?id=${e.id}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${esc(e.titolo)}" />
+<meta name="twitter:description" content="${esc(descrizioneSocial)}" />
+<meta name="twitter:image" content="${siteUrl}/api/locandina?id=${e.id}" />
 <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
 </head>
 <body>
