@@ -18,20 +18,20 @@ import {
   LocateFixed,
   Pencil,
   Trash2,
-  Music,
-  UtensilsCrossed,
-  ShoppingBag,
-  Trophy,
-  Palette,
-  Users,
-  Moon,
   Map as MapIcon,
   LayoutGrid,
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import { buildEventJsonLd } from "../lib/eventoSchema.js";
+import {
+  CATEGORIES,
+  categoryStyle,
+  titleCase,
+  staticMapUrl,
+  googleMapsUrl,
+  eventImageUrl,
+} from "./eventoStile";
 
-const CATEGORIES = ["Musica", "Sagra", "Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro"];
 
 // Esempi che ruotano nella barra di ricerca: servono a far capire al volo
 // che si puo' scrivere in linguaggio naturale, non solo parole chiave.
@@ -65,40 +65,6 @@ function distanzaKm(lat1, lng1, lat2, lng2) {
 }
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
-
-// Identita' visiva per categoria: colore d'accento e illustrazione di
-// fallback quando l'evento non ha una foto propria (al posto della mappa).
-const CATEGORY_STYLE = {
-  Musica: { accent: "#8B5CF6", icon: Music, from: "#7C3AED", to: "#C4B5FD" },
-  Sagra: { accent: "#F97316", icon: UtensilsCrossed, from: "#EA580C", to: "#FDBA74" },
-  Mercatino: { accent: "#059669", icon: ShoppingBag, from: "#047857", to: "#6EE7B7" },
-  Sport: { accent: "#0284C7", icon: Trophy, from: "#0369A1", to: "#7DD3FC" },
-  "Arte & Cultura": { accent: "#DB2777", icon: Palette, from: "#BE185D", to: "#F9A8D4" },
-  Famiglia: { accent: "#D97706", icon: Users, from: "#B45309", to: "#FCD34D" },
-  Nightlife: { accent: "#4F46E5", icon: Moon, from: "#4338CA", to: "#A5B4FC" },
-  Altro: { accent: "#64748B", icon: Sparkles, from: "#475569", to: "#CBD5E1" },
-};
-function categoryStyle(categoria) {
-  return CATEGORY_STYLE[categoria] || CATEGORY_STYLE.Altro;
-}
-
-// Titolo elegante: maiuscola a inizio parola, articoli/preposizioni brevi
-// restano minuscoli (tranne a inizio frase) — corregge titoli inseriti
-// tutti minuscoli senza stravolgere quelli gia' scritti bene.
-const MINUSCOLE_IT = new Set([
-  "di", "a", "da", "in", "con", "su", "per", "tra", "fra", "e", "o", "il", "lo", "la", "i", "gli", "le",
-  "un", "uno", "una", "del", "dello", "della", "dei", "degli", "delle", "al", "allo", "alla", "ai", "agli",
-  "alle", "dal", "dallo", "dalla", "dai", "dagli", "dalle", "nel", "nello", "nella", "nei", "negli", "nelle",
-]);
-function titleCase(str) {
-  if (!str) return str;
-  return str
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .map((w, i) => (i !== 0 && MINUSCOLE_IT.has(w) ? w : w.replace(/(^|['-])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase())))
-    .join(" ");
-}
 
 // Carica lo script di Google Maps (con la libreria Places) una sola volta,
 // anche se piu componenti PublishForm lo richiedono in parallelo
@@ -207,19 +173,6 @@ async function geocodeLuogo(luogo) {
   } catch {
     return null;
   }
-}
-
-function staticMapUrl(lat, lng) {
-  if (!MAPBOX_TOKEN || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+FF7E04(${lng},${lat})/${lng},${lat},13,0/640x400@2x?access_token=${MAPBOX_TOKEN}`;
-}
-
-function googleMapsUrl(luogo) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(luogo)}`;
-}
-
-function eventImageUrl(e) {
-  return e.immagine_url || staticMapUrl(e.luogo_lat, e.luogo_lng) || "/event-placeholder.png";
 }
 
 export default function App() {
@@ -1293,7 +1246,7 @@ export default function App() {
                     key={e.id}
                     className="relative bg-[#4D8AFF] text-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden"
                   >
-                    <div className="relative h-40 w-full bg-[#3A6FE0]">
+                    <a href={`/evento/${e.id}`} className="relative block h-40 w-full bg-[#3A6FE0]">
                       {e.immagine_url ? (
                         <img
                           src={e.immagine_url}
@@ -1329,9 +1282,13 @@ export default function App() {
                           <ShieldCheck size={12} /> Verificato
                         </span>
                       )}
-                    </div>
+                    </a>
                     <div className="p-5 pt-4">
-                      <h3 className="font-display text-xl font-bold leading-snug mb-1.5">{titleCase(e.titolo)}</h3>
+                      <h3 className="font-display text-xl font-bold leading-snug mb-1.5">
+                        <a href={`/evento/${e.id}`} className="hover:underline">
+                          {titleCase(e.titolo)}
+                        </a>
+                      </h3>
                       <div className="text-xs text-white/85 space-y-1 mb-3">
                         <p className="font-data flex items-center gap-1.5">
                           <Calendar size={13} />
