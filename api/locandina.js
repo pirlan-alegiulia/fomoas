@@ -79,7 +79,7 @@ export default async function handler(req) {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
+          justifyContent: formatoPost ? "flex-start" : "space-between",
           backgroundImage: SFONDO,
           padding: formatoPost ? 72 : 60,
           fontFamily: "sans-serif",
@@ -112,6 +112,29 @@ export default async function handler(req) {
           e.categoria
         )
       ),
+
+      // Nel formato verticale c'e' molto spazio in mezzo: lo riempie la foto
+      // dell'evento, se c'e'. Senza foto resterebbe un vuoto imbarazzante,
+      // quindi in quel caso il blocco non compare e il testo si ricentra.
+      formatoPost && e.immagine_url
+        ? h(
+            "div",
+            {
+              style: {
+                display: "flex",
+                flexGrow: 1,
+                marginTop: 36,
+                marginBottom: 36,
+                borderRadius: 28,
+                overflow: "hidden",
+              },
+            },
+            h("img", {
+              src: e.immagine_url,
+              style: { width: "100%", height: "100%", objectFit: "cover" },
+            })
+          )
+        : h("div", { style: { display: "flex", flexGrow: formatoPost ? 1 : 0 } }),
 
       // Corpo: titolo e dati essenziali
       h(
@@ -155,7 +178,14 @@ export default async function handler(req) {
       // Chiusura: organizzatore e invito
       h(
         "div",
-        { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between" } },
+        {
+          style: {
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            marginTop: formatoPost ? 44 : 0,
+          },
+        },
         h(
           "div",
           { style: { display: "flex", flexDirection: "column" } },
