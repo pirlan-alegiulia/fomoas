@@ -71,8 +71,13 @@ export default async function handler(req, res) {
           : "") +
         `Quando hai finito, rispondi SOLO con un array JSON valido (nessun testo prima o dopo, nessun blocco ` +
         `di codice), con al massimo ${quantiRichiesti} eventi, ciascuno con questa forma esatta: ` +
-        `{"titolo": string, "data": string leggibile es. "15 settembre 2026", "luogo": string (comune preciso), ` +
-        `"descrizione": string breve (max 20 parole), "fonte": string url della pagina dove l'hai trovato}. ` +
+        `{"titolo": string, "data": string leggibile es. "15 settembre 2026", "data_iso": string nel formato ` +
+        `AAAA-MM-GG con la data di inizio (null se davvero non deducibile, per esempio "ogni seconda domenica ` +
+        `del mese"), "ora": string "HH:MM" oppure null, "categoria": una sola fra "Musica", "Sagra", ` +
+        `"Mercatino", "Sport", "Arte & Cultura", "Famiglia", "Nightlife", "Altro", "gratuito": true o false ` +
+        `(true se l'ingresso risulta libero, false se e' a pagamento; usa true se non e' specificato), ` +
+        `"luogo": string (indirizzo o comune preciso), "descrizione": string breve (max 20 parole), ` +
+        `"fonte": string url della pagina dove l'hai trovato}. ` +
         `Se non trovi nulla di pertinente e verificabile, rispondi con un array vuoto [].`,
       messages: [{ role: "user", content: richiesta.trim().slice(0, MAX_RICHIESTA) }],
     }, {

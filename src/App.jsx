@@ -116,6 +116,7 @@ const emptyForm = {
   prefissoTel: "+39",
   telefono: "",
   link_verifica: "",
+  immagine_posizione: "50% 50%",
 };
 
 function isValidEmail(v) {
@@ -353,6 +354,7 @@ export default function App() {
       prefissoTel: prefissoMatch ? prefissoMatch.code : "+39",
       telefono: prefissoMatch ? e.telefono.slice(prefissoMatch.code.length).trim() : e.telefono || "",
       link_verifica: e.link_verifica || "",
+      immagine_posizione: e.immagine_posizione || "50% 50%",
     });
     setErrors({});
     handleRemoveImage();
@@ -560,6 +562,7 @@ export default function App() {
     const payload = {
       ...restForm,
       telefono: `${prefissoTel} ${telefono}`.trim(),
+      immagine_posizione: datiForm.immagine_posizione || "50% 50%",
       ora: datiForm.ora || null,
       prezzo: datiForm.gratuito ? null : Number(datiForm.prezzo),
       immagine_url,
@@ -917,6 +920,9 @@ export default function App() {
     aiLoading,
     onGenerateAI: generaDescrizioneIA,
     imagePreview,
+    // In modifica la foto e' gia' caricata: serve comunque poterne
+    // ritoccare l'inquadratura senza doverla ricaricare.
+    fotoAttuale: imagePreview || editingImageUrl,
     onImageChange: handleImageChange,
     onRemoveImage: handleRemoveImage,
     submitting,
@@ -1304,6 +1310,7 @@ export default function App() {
                           alt=""
                           loading="lazy"
                           className="w-full h-full object-cover"
+                          style={{ objectPosition: e.immagine_posizione || "50% 50%" }}
                           onError={(ev) => {
                             ev.currentTarget.style.display = "none";
                           }}
@@ -1564,6 +1571,7 @@ function PublishForm({
   aiLoading,
   onGenerateAI,
   imagePreview,
+  fotoAttuale,
   onImageChange,
   onRemoveImage,
   submitting,
@@ -1743,7 +1751,17 @@ function PublishForm({
             <input type="file" accept="image/*" className="hidden" onChange={onImageChange} />
           </label>
         </div>
-        <p className="text-[11px] text-white/60 mt-1.5">Se non carichi una foto, mostriamo automaticamente una mappa del luogo.</p>
+        {fotoAttuale ? (
+          <InquadraturaFoto
+            src={fotoAttuale}
+            posizione={form.immagine_posizione || "50% 50%"}
+            onChange={(p) => setForm({ ...form, immagine_posizione: p })}
+          />
+        ) : (
+          <p className="text-[11px] text-white/60 mt-1.5">
+            Se non carichi una foto, mostriamo automaticamente una mappa del luogo.
+          </p>
+        )}
       </Field>
 
       <Field label="Ingresso">
@@ -2209,6 +2227,63 @@ function DomandeEvento({ evento }) {
 
       {caricamento && <p className="text-[11px] text-white/70 mt-2">Sto guardando i dati dell'evento...</p>}
       {risposta && <p className="text-[11px] bg-white/15 rounded-lg px-2.5 py-2 mt-2 leading-relaxed">{risposta}</p>}
+    </div>
+  );
+}
+
+// Le card e la pagina evento ritagliano la foto per riempire un riquadro
+// orizzontale: senza poter scegliere il punto da tenere, i soggetti finivano
+// tagliati (tipicamente le teste). Qui si vede l'anteprima del ritaglio vero
+// e si sposta l'inquadratura, cosi si sa gia' cosa si vedra' in bacheca.
+function InquadraturaFoto({ src, posizione, onChange }) {
+  const [x, y] = posizione.split(" ").map((v) => parseInt(v, 10) || 50);
+
+  return (
+    <div className="mt-3">
+      <p className="text-[11px] text-white/70 mb-2">
+        Anteprima del ritaglio in bacheca. Sposta i cursori per scegliere cosa resta visibile.
+      </p>
+      <div className="rounded-xl overflow-hidden border border-white/30 bg-black/20">
+        <img
+          src={src}
+          alt="Anteprima del ritaglio"
+          className="w-full h-32 object-cover"
+          style={{ objectPosition: `${x}% ${y}%` }}
+        />
+      </div>
+      <div className="mt-2.5 space-y-2">
+        <label className="flex items-center gap-3 text-[11px] text-white/75">
+          <span className="w-20 shrink-0">Orizzontale</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={x}
+            onChange={(ev) => onChange(`${ev.target.value}% ${y}%`)}
+            className="flex-1 accent-white"
+          />
+        </label>
+        <label className="flex items-center gap-3 text-[11px] text-white/75">
+          <span className="w-20 shrink-0">Verticale</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={y}
+            onChange={(ev) => onChange(`${x}% ${ev.target.value}%`)}
+            className="flex-1 accent-white"
+          />
+        </label>
+      </div>
+      {(x !== 50 || y !== 50) && (
+        <button
+          type="button"
+          onClick={() => onChange("50% 50%")}
+          className="text-[11px] underline text-white/70 mt-2"
+        >
+          Rimetti al centro
+        </button>
+      )}
     </div>
   );
 }

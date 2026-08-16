@@ -117,7 +117,12 @@ export default function EventPage({ id }) {
         <article className="bg-[#4D8AFF] rounded-2xl overflow-hidden shadow-xl">
           <div className="relative h-56 sm:h-72">
             {evento.immagine_url ? (
-              <img src={evento.immagine_url} alt={evento.titolo} className="w-full h-full object-cover" />
+              <img
+                src={evento.immagine_url}
+                alt={evento.titolo}
+                className="w-full h-full object-cover"
+                style={{ objectPosition: evento.immagine_posizione || "50% 50%" }}
+              />
             ) : (
               <div
                 className="w-full h-full flex items-center justify-center"
