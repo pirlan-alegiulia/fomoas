@@ -1221,7 +1221,23 @@ export default function App() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-16 border border-dashed border-white/50 rounded-2xl">
-                {events.length === 0 ? (
+                {webLoading || webEvents !== null ? (
+                  // C'e' una ricerca in rete in corso o gia' conclusa: invece di
+                  // lasciare l'utente davanti a un vicolo cieco, gli diciamo che
+                  // qui non c'e' nulla ma che sotto trova comunque delle proposte.
+                  <>
+                    <p className="font-display text-lg mb-1">
+                      Su fomoas non ci sono ancora eventi per questa ricerca
+                    </p>
+                    <p className="text-sm text-white/80 max-w-lg mx-auto">
+                      Nessuno li ha ancora pubblicati qui. Nel frattempo l'IA ne ha cercati in rete alcuni che
+                      potrebbero fare al caso tuo: li trovi qui sotto.
+                    </p>
+                    <p className="text-white/60 mt-3" aria-hidden="true">
+                      ↓
+                    </p>
+                  </>
+                ) : events.length === 0 ? (
                   <>
                     <p className="font-display text-lg mb-1">La bacheca e ancora vuota qui</p>
                     <p className="text-sm text-white/80">Pubblica il primo evento per iniziare a riempirla.</p>
@@ -1368,7 +1384,9 @@ export default function App() {
               <div className="mt-10">
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles size={15} />
-                  <h2 className="font-display text-base font-semibold">Altre idee trovate sul web</h2>
+                  <h2 className="font-display text-base font-semibold">
+                    {filtered.length === 0 ? "Idee trovate in rete per te" : "Altre idee trovate sul web"}
+                  </h2>
                 </div>
                 <p className="text-xs text-white/70 mb-4">
                   Non sono pubblicate su fomoas e non le abbiamo verificate: controlla sempre la fonte prima di
