@@ -80,7 +80,11 @@ export default async function handler(req, res) {
       // ricerca si dilunga preferiamo restituire un errore pulito, che
       // l'interfaccia sa mostrare con un "Riprova", invece di farci troncare
       // dal gateway con un 504 che al browser arriva come pagina HTML.
-      timeout: 90_000,
+      // La maggior parte delle ricerche chiude in 15-40 secondi, ma la coda
+      // lenta esiste: con il tetto a 90 secondi le buttavamo via invece di
+      // aspettarle. Il limite della funzione (300s) lascia margine, e chi e'
+      // veloce resta veloce: questo tetto tocca solo i casi lenti.
+      timeout: 200_000,
     });
 
     const testo = message.content
