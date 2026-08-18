@@ -1383,7 +1383,7 @@ export default function App() {
                           {titleCase(e.titolo)}
                         </a>
                       </h2>
-                      <div className="text-xs text-white/85 space-y-1 mb-3">
+                      <div className="text-xs text-white/90 space-y-1 mb-3">
                         <p className="font-data flex items-center gap-1.5">
                           <Calendar size={13} />
                           {new Date(e.data).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
@@ -1408,7 +1408,7 @@ export default function App() {
                       <div className="mb-3">
                         <DomandeEvento evento={e} />
                       </div>
-                      {e.descrizione && <p className="text-sm text-white/85 mb-3 leading-relaxed">{e.descrizione}</p>}
+                      {e.descrizione && <p className="text-sm text-white/90 mb-3 leading-relaxed">{e.descrizione}</p>}
                       <div className="flex items-center justify-between gap-3 text-xs pt-3 border-t border-white/30">
                         <a
                           href={e.link_verifica}
@@ -1420,7 +1420,7 @@ export default function App() {
                         </a>
                         <button
                           onClick={() => handleReport(e.id)}
-                          className="inline-flex items-center gap-1 text-[#FF5252] hover:underline"
+                          className="inline-flex items-center gap-1 text-[#FFE8E8] hover:underline"
                         >
                           <Flag size={12} /> Segnala {e.reports > 0 ? `(${e.reports})` : ""}
                         </button>
