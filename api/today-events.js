@@ -9,7 +9,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { dateSchema, prezzoLabel } from "../lib/eventoSchema.js";
-
+import { slugEvento } from "../lib/slug.js";
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
 function oggiISO() {
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       const { startDate, endDate } = dateSchema(e);
       return {
         id: e.id,
-        url: `${siteUrl}/evento/${e.id}`,
+        url: `${siteUrl}/evento/${slugEvento(e)}`,
         titolo: e.titolo,
         categoria: e.categoria,
         data: e.data,

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import PannelloSocial from "./PannelloSocial";
+import { slugEvento, slugifica, leggiSlug, eUnCodice } from "../lib/slug.js";
 import {
   categoryStyle,
   titleCase,
@@ -29,6 +30,22 @@ import {
   SFONDO_SITO,
 } from "./eventoStile";
 
+// L'indirizzo puo' essere lo slug leggibile oppure il vecchio codice.
+// Dallo slug si ricava la data, si chiedono i pochi eventi di quel giorno e
+// si sceglie quello col titolo corrispondente: cosi non serve una colonna
+// dedicata sul database.
+async function cercaEvento(param) {
+  if (eUnCodice(param)) {
+    const { data } = await supabase.from("eventi").select("*").eq("id", param).maybeSingle();
+    return data || null;
+  }
+  const pezzi = leggiSlug(param);
+  if (!pezzi) return null;
+  const { data } = await supabase.from("eventi").select("*").eq("data", pezzi.data);
+  if (!data?.length) return null;
+  return data.find((e) => slugifica(e.titolo) === pezzi.titolo) || null;
+}
+
 export default function EventPage({ id }) {
   const [evento, setEvento] = useState(null);
   const [stato, setStato] = useState("caricamento");
@@ -37,15 +54,22 @@ export default function EventPage({ id }) {
   useEffect(() => {
     let annullato = false;
     (async () => {
-      const { data, error } = await supabase.from("eventi").select("*").eq("id", id).maybeSingle();
+      const trovato = await cercaEvento(id);
       if (annullato) return;
-      if (error || !data) {
+      if (!trovato) {
         setStato("mancante");
         return;
       }
-      setEvento(data);
+      setEvento(trovato);
       setStato("ok");
-      document.title = `${data.titolo} — ${data.luogo} — fomoas`;
+      document.title = `${trovato.titolo} — ${trovato.luogo} — fomoas`;
+
+      // Vecchio indirizzo col solo codice: lo sostituiamo con quello
+      // leggibile senza ricaricare, cosi chi condivide copia la versione
+      // buona e i link gia' in giro continuano a funzionare.
+      if (eUnCodice(id)) {
+        window.history.replaceState(null, "", `/evento/${slugEvento(trovato)}`);
+      }
     })();
     return () => {
       annullato = true;

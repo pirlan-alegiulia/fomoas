@@ -2,7 +2,7 @@
 // evento verificato), cosi i crawler scoprono anche i permalink /evento/:id.
 
 import { createClient } from "@supabase/supabase-js";
-
+import { slugEvento } from "../lib/slug.js";
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
 export default async function handler(req, res) {
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     `<url><loc>${siteUrl}/</loc><lastmod>${dataHome}</lastmod><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
     ...(eventi || []).map((e) => {
       const lastmod = new Date(e.created_at).toISOString().slice(0, 10);
-      return `<url><loc>${siteUrl}/evento/${e.id}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq></url>`;
+      return `<url><loc>${siteUrl}/evento/${slugEvento(e)}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq></url>`;
     }),
     `<url><loc>${siteUrl}/policy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>`,
   ].join("");

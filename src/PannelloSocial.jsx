@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link as LinkIcon, Check, Download } from "lucide-react";
 import { dataEstesa } from "./eventoStile";
-
+import { slugEvento } from "../lib/slug.js";
 // Kit per far girare l'evento sui social. Facebook e WhatsApp mostrano
 // l'anteprima leggendo i tag Open Graph della pagina, quindi li' basta il
 // link. Instagram invece non fa anteprime dei link: serve un'immagine vera
@@ -11,7 +11,7 @@ export default function PannelloSocial({ evento }) {
   // Sempre il permalink dell'evento, non l'indirizzo della pagina corrente:
   // questo pannello compare anche subito dopo la pubblicazione, quando si
   // e' ancora sulla bacheca.
-  const url = `${typeof window !== "undefined" ? window.location.origin : "https://www.fomoas.com"}/evento/${evento.id}`;
+  const url = `${typeof window !== "undefined" ? window.location.origin : "https://www.fomoas.com"}/evento/${slugEvento(evento)}`;
   const locandinaPost = `/api/locandina?id=${evento.id}&formato=post`;
   const testo = `${evento.titolo} — ${dataEstesa(evento.data)} a ${evento.luogo}`;
 

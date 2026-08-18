@@ -24,7 +24,7 @@ import {
 import { supabase } from "./supabaseClient";
 import PannelloSocial from "./PannelloSocial";
 import { buildEventJsonLd } from "../lib/eventoSchema.js";
-import {
+import { slugEvento } from "../lib/slug.js";import {
   CATEGORIES,
   categoryStyle,
   titleCase,
@@ -1336,7 +1336,7 @@ export default function App() {
                     key={e.id}
                     className="relative bg-[#2F63D4] text-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden"
                   >
-                    <a href={`/evento/${e.id}`} className="relative block h-40 w-full bg-[#3A6FE0]">
+                    <a href={`/evento/${slugEvento(e)}`} className="relative block h-40 w-full bg-[#3A6FE0]">
                       {e.immagine_url ? (
                         <img
                           src={e.immagine_url}
@@ -1379,7 +1379,7 @@ export default function App() {
                           saltare un livello disorienta chi naviga con lo
                           screen reader saltando di titolo in titolo. */}
                       <h2 className="font-display text-xl font-bold leading-snug mb-1.5">
-                        <a href={`/evento/${e.id}`} className="hover:underline">
+                        <a href={`/evento/${slugEvento(e)}`} className="hover:underline">
                           {titleCase(e.titolo)}
                         </a>
                       </h2>

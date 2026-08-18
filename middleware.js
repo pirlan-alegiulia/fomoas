@@ -7,6 +7,7 @@
 // Gli utenti umani (browser) non passano da qui: ricevono la SPA normale.
 
 import { esc, fmtData, prezzoLabel, buildEventJsonLd } from "./lib/eventoSchema.js";
+import { slugEvento, slugifica, leggiSlug, eUnCodice } from "./lib/slug.js";
 
 export const config = { matcher: ["/", "/evento/:path*"] };
 
@@ -25,8 +26,26 @@ export default async function middleware(request) {
 
   try {
     const match = url.pathname.match(/^\/evento\/([^/]+)/);
-    const html = match ? await renderEventPage(match[1], siteUrl) : await renderHomePage(siteUrl);
-    if (!html) return;
+    if (!match) {
+      const html = await renderHomePage(siteUrl);
+      if (!html) return;
+      return new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+    }
+
+    const evento = await trovaEvento(match[1]);
+    if (!evento) return;
+
+    // Vecchio indirizzo col solo codice: rimandiamo a quello leggibile con un
+    // redirect permanente, cosi i motori trasferiscono li' quanto gia'
+    // accumulato invece di indicizzare due pagine uguali.
+    if (eUnCodice(match[1])) {
+      return new Response(null, {
+        status: 301,
+        headers: { location: `${siteUrl}/evento/${slugEvento(evento)}` },
+      });
+    }
+
+    const html = renderEventPage(evento, siteUrl);
     return new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
   } catch {
     return;
@@ -58,7 +77,7 @@ async function renderHomePage(siteUrl) {
     .map(
       (e) => `
     <article>
-      <h2><a href="${siteUrl}/evento/${e.id}">${esc(e.titolo)}</a></h2>
+      <h2><a href="${siteUrl}/evento/${slugEvento(e)}">${esc(e.titolo)}</a></h2>
       <p>${esc(fmtData(e.data))}${e.ora ? " · " + esc(e.ora) : ""} — ${esc(e.luogo)}</p>
       <p>${prezzoLabel(e)} · Categoria: ${esc(e.categoria)}</p>
       ${e.descrizione ? `<p>${esc(e.descrizione)}</p>` : ""}
@@ -85,11 +104,21 @@ ${items || "<p>Nessun evento verificato al momento.</p>"}
 </html>`;
 }
 
-async function renderEventPage(id, siteUrl) {
-  const eventi = await supabaseFetch(`select=*&id=eq.${encodeURIComponent(id)}&verificato=eq.true`);
-  const e = eventi?.[0];
-  if (!e) return null;
+// Accetta sia lo slug leggibile sia il vecchio codice: dallo slug ricava la
+// data, chiede i pochi eventi di quel giorno e sceglie quello col titolo
+// corrispondente.
+async function trovaEvento(param) {
+  if (eUnCodice(param)) {
+    const righe = await supabaseFetch(`select=*&id=eq.${encodeURIComponent(param)}&verificato=eq.true`);
+    return righe?.[0] || null;
+  }
+  const pezzi = leggiSlug(param);
+  if (!pezzi) return null;
+  const righe = await supabaseFetch(`select=*&data=eq.${pezzi.data}&verificato=eq.true`);
+  return righe?.find((e) => slugifica(e.titolo) === pezzi.titolo) || null;
+}
 
+function renderEventPage(e, siteUrl) {
   const jsonLd = buildEventJsonLd(e, siteUrl);
 
   // Riassunto per l'anteprima social: se manca la descrizione componiamo
@@ -105,12 +134,12 @@ async function renderEventPage(id, siteUrl) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${esc(e.titolo)} — ${esc(e.luogo)} — fomoas</title>
 <meta name="description" content="${esc(descrizioneSocial)}" />
-<link rel="canonical" href="${siteUrl}/evento/${e.id}" />
+<link rel="canonical" href="${siteUrl}/evento/${slugEvento(e)}" />
 <meta property="og:type" content="article" />
 <meta property="og:site_name" content="fomoas" />
 <meta property="og:title" content="${esc(e.titolo)}" />
 <meta property="og:description" content="${esc(descrizioneSocial)}" />
-<meta property="og:url" content="${siteUrl}/evento/${e.id}" />
+<meta property="og:url" content="${siteUrl}/evento/${slugEvento(e)}" />
 <meta property="og:image" content="${siteUrl}/api/locandina?id=${e.id}" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
