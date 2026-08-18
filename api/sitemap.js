@@ -13,12 +13,22 @@ export default async function handler(req, res) {
     .select("id, created_at")
     .eq("verificato", true);
 
+  // La data della homepage segue l'ultimo evento pubblicato: e' quello che
+  // ne cambia il contenuto, ed e' il segnale che dice ai motori quando vale
+  // la pena ripassare.
+  const ultimoAggiornamento = (eventi || [])
+    .map((e) => e.created_at)
+    .sort()
+    .pop();
+  const dataHome = new Date(ultimoAggiornamento || Date.now()).toISOString().slice(0, 10);
+
   const urls = [
-    `<url><loc>${siteUrl}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
+    `<url><loc>${siteUrl}/</loc><lastmod>${dataHome}</lastmod><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
     ...(eventi || []).map((e) => {
       const lastmod = new Date(e.created_at).toISOString().slice(0, 10);
       return `<url><loc>${siteUrl}/evento/${e.id}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq></url>`;
     }),
+    `<url><loc>${siteUrl}/policy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>`,
   ].join("");
 
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
