@@ -50,7 +50,7 @@ export default function PannelloSocial({ evento }) {
             download={`fomoas-${evento.id}.png`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-[#4D8AFF] text-white font-bold rounded-xl px-4 py-2.5 text-sm hover:bg-[#3A72E6] transition-colors mb-6"
+            className="inline-flex items-center gap-2 bg-[#2F63D4] text-white font-bold rounded-xl px-4 py-2.5 text-sm hover:bg-[#3A72E6] transition-colors mb-6"
           >
             <Download size={15} /> Scarica la locandina
           </a>

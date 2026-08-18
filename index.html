@@ -15,11 +15,32 @@
       property="og:description"
       content="Bacheca di eventi locali in Italia: sagre, concerti, mercatini, sport, arte e cultura, aggiornata in tempo reale."
     />
+    <!--
+      I font sono su due domini: il foglio di stile su fonts.googleapis.com,
+      i file veri su fonts.gstatic.com. Senza il secondo preconnect il browser
+      scopre il dominio dei font solo dopo aver letto il CSS, e ci perde tempo.
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Caricato in modo non bloccante: prima questo foglio fermava il disegno
+      della pagina per circa 800 ms, e siccome l'elemento piu' grande e' del
+      testo, la pagina restava vuota fino all'arrivo dei font. Con media=print
+      il browser lo scarica senza aspettarlo, e onload lo attiva; display=swap
+      fa comparire subito il testo con un font di sistema.
+    -->
     <link
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Roboto+Mono:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Roboto+Mono:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>

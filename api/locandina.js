@@ -19,12 +19,12 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
 // Stessi colori d'accento della bacheca, cosi la locandina e' riconoscibile
 const ACCENTI = {
-  Musica: "#8B5CF6",
-  Sagra: "#F97316",
-  Mercatino: "#059669",
-  Sport: "#0284C7",
+  Musica: "#7C3AED",
+  Sagra: "#C2410C",
+  Mercatino: "#047857",
+  Sport: "#0369A1",
   "Arte & Cultura": "#DB2777",
-  Famiglia: "#D97706",
+  Famiglia: "#B45309",
   Nightlife: "#4F46E5",
   Altro: "#64748B",
 };

@@ -92,7 +92,7 @@ export default function EventPage({ id }) {
           </p>
           <a
             href="/"
-            className="inline-flex items-center gap-2 bg-white text-[#4D8AFF] font-bold rounded-xl px-5 py-3 text-sm hover:bg-[#EAF1FF] transition-colors"
+            className="inline-flex items-center gap-2 bg-white text-[#2F63D4] font-bold rounded-xl px-5 py-3 text-sm hover:bg-[#EAF1FF] transition-colors"
           >
             <ArrowLeft size={16} /> Vedi tutti gli eventi
           </a>
@@ -114,7 +114,7 @@ export default function EventPage({ id }) {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 sm:px-8 pb-16">
-        <article className="bg-[#4D8AFF] rounded-2xl overflow-hidden shadow-xl">
+        <article className="bg-[#2F63D4] rounded-2xl overflow-hidden shadow-xl">
           <div className="relative h-56 sm:h-72">
             {evento.immagine_url ? (
               <img
@@ -205,7 +205,7 @@ export default function EventPage({ id }) {
                 href={indicazioniUrl(evento.luogo)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-white text-[#4D8AFF] font-bold rounded-xl px-4 py-2.5 text-sm hover:bg-[#EAF1FF] transition-colors"
+                className="inline-flex items-center gap-2 bg-white text-[#2F63D4] font-bold rounded-xl px-4 py-2.5 text-sm hover:bg-[#EAF1FF] transition-colors"
               >
                 <Navigation size={15} /> Come arrivare
               </a>

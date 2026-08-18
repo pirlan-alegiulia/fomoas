@@ -119,6 +119,35 @@ const emptyForm = {
   immagine_posizione: "50% 50%",
 };
 
+// Le foto dai telefoni arrivano da 3-5 MB e vengono poi mostrate in riquadri
+// larghi al massimo qualche centinaio di pixel: caricarle intere pesava sul
+// caricamento delle pagine. Qui vengono ridimensionate e convertite in WebP
+// prima di partire. Se qualcosa non va (formato strano, canvas non
+// disponibile) si carica l'originale: meglio una foto pesante che nessuna.
+const LATO_MAX = 1600;
+
+async function comprimiImmagine(file) {
+  if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scala = Math.min(1, LATO_MAX / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scala);
+    const h = Math.round(bitmap.height * scala);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/webp", 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".webp", { type: "image/webp" });
+  } catch {
+    return file;
+  }
+}
+
 function isValidEmail(v) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
@@ -530,9 +559,12 @@ export default function App() {
   // in quel caso deve fermarsi: l'errore e' gia' stato mostrato).
   async function caricaImmagine() {
     if (!imageFile) return editingId ? editingImageUrl : null;
-    const ext = imageFile.name.split(".").pop();
+    const daCaricare = await comprimiImmagine(imageFile);
+    const ext = daCaricare.type === "image/webp" ? "webp" : imageFile.name.split(".").pop();
     const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await supabase.storage.from("eventi-immagini").upload(path, imageFile);
+    const { error } = await supabase.storage
+      .from("eventi-immagini")
+      .upload(path, daCaricare, { contentType: daCaricare.type });
     if (error) {
       setSubmitting(false);
       setToast({ type: "error", msg: "Errore nel caricamento della foto: " + error.message });
@@ -995,7 +1027,7 @@ export default function App() {
               if (editingId || pendingSubmit) handleCancelEdit();
               setShowForm(true);
             }}
-            className="self-start shrink-0 inline-flex items-center gap-2 bg-white text-[#FF8000] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE3B0] transition-colors"
+            className="self-start shrink-0 inline-flex items-center gap-2 bg-white text-[#BF5600] font-semibold px-4 py-2.5 rounded-full hover:bg-[#FFE3B0] transition-colors"
           >
             <Plus size={18} /> Pubblica evento
           </button>
@@ -1051,7 +1083,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-5 sm:px-8 mt-6">
           <div className="bg-white rounded-2xl shadow-lg p-5 sm:p-6 flex items-start gap-4">
             <div className="shrink-0 w-10 h-10 rounded-full bg-[#FF8000]/15 flex items-center justify-center">
-              <ShieldCheck size={20} className="text-[#FF8000]" />
+              <ShieldCheck size={20} className="text-[#BF5600]" />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="font-display text-lg font-bold text-[#1B2444] mb-1">Email confermata, grazie!</h2>
@@ -1082,7 +1114,7 @@ export default function App() {
                 chiediAllaIA();
               }}
             >
-              <Sparkles size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#FF8000]" />
+              <Sparkles size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#BF5600]" />
               <input
                 value={query}
                 onChange={(e) => {
@@ -1102,7 +1134,7 @@ export default function App() {
                     type="button"
                     onClick={toggleListening}
                     className={`p-2 rounded-lg transition-colors ${
-                      listening ? "bg-[#FF5252] text-white" : "text-[#4D8AFF] hover:bg-[#F1F5F9]"
+                      listening ? "bg-[#FF5252] text-white" : "text-[#2F63D4] hover:bg-[#F1F5F9]"
                     }`}
                     aria-label={listening ? "Ferma ascolto" : "Cerca a voce"}
                   >
@@ -1112,7 +1144,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={!query.trim() || aiLoadingRicerca}
-                  className="p-2 rounded-lg bg-[#4D8AFF] text-white hover:bg-[#3A72E6] transition-colors disabled:opacity-40"
+                  className="p-2 rounded-lg bg-[#2F63D4] text-white hover:bg-[#3A72E6] transition-colors disabled:opacity-40"
                   aria-label="Chiedi all'IA"
                 >
                   {aiLoadingRicerca ? <Sparkles size={16} className="animate-pulse" /> : <Send size={16} />}
@@ -1139,6 +1171,7 @@ export default function App() {
             </form>
             <div className="relative">
               <select
+                aria-label="Filtra per categoria"
                 value={categoryFilter}
                 onChange={(e) => {
                   setCategoryFilter(e.target.value);
@@ -1152,7 +1185,7 @@ export default function App() {
                   <option key={c}>{c}</option>
                 ))}
               </select>
-              <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#FF8000] pointer-events-none" />
+              <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#BF5600] pointer-events-none" />
             </div>
             <button
               onClick={trovaEventiVicino}
@@ -1276,7 +1309,7 @@ export default function App() {
                     <button
                       onClick={() => setViewMode("griglia")}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        viewMode === "griglia" ? "bg-white text-[#FF8000]" : "text-white/80 hover:text-white"
+                        viewMode === "griglia" ? "bg-white text-[#BF5600]" : "text-white/80 hover:text-white"
                       }`}
                     >
                       <LayoutGrid size={14} /> Griglia
@@ -1284,7 +1317,7 @@ export default function App() {
                     <button
                       onClick={() => setViewMode("mappa")}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        viewMode === "mappa" ? "bg-white text-[#FF8000]" : "text-white/80 hover:text-white"
+                        viewMode === "mappa" ? "bg-white text-[#BF5600]" : "text-white/80 hover:text-white"
                       }`}
                     >
                       <MapIcon size={14} /> Mappa
@@ -1301,7 +1334,7 @@ export default function App() {
                   return (
                   <article
                     key={e.id}
-                    className="relative bg-[#4D8AFF] text-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden"
+                    className="relative bg-[#2F63D4] text-white rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-200 overflow-hidden"
                   >
                     <a href={`/evento/${e.id}`} className="relative block h-40 w-full bg-[#3A6FE0]">
                       {e.immagine_url ? (
@@ -1342,11 +1375,14 @@ export default function App() {
                       )}
                     </a>
                     <div className="p-5 pt-4">
-                      <h3 className="font-display text-xl font-bold leading-snug mb-1.5">
+                      {/* h2 e non h3: nella pagina non c'e' nessun h2 prima, e
+                          saltare un livello disorienta chi naviga con lo
+                          screen reader saltando di titolo in titolo. */}
+                      <h2 className="font-display text-xl font-bold leading-snug mb-1.5">
                         <a href={`/evento/${e.id}`} className="hover:underline">
                           {titleCase(e.titolo)}
                         </a>
-                      </h3>
+                      </h2>
                       <div className="text-xs text-white/85 space-y-1 mb-3">
                         <p className="font-data flex items-center gap-1.5">
                           <Calendar size={13} />
@@ -1541,8 +1577,8 @@ export default function App() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-6">
-          <div className="bg-[#4D8AFF] text-white border border-white/25 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/25 sticky top-0 bg-[#4D8AFF]">
+          <div className="bg-[#2F63D4] text-white border border-white/25 w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/25 sticky top-0 bg-[#2F63D4]">
               <h2 className="font-display text-lg font-semibold">
                 {editingId ? "Modifica evento" : "Pubblica un evento"}
               </h2>
@@ -1556,7 +1592,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#4D8AFF] text-white border border-white/25 px-4 py-2.5 rounded-full text-sm font-semibold shadow-xl">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#2F63D4] text-white border border-white/25 px-4 py-2.5 rounded-full text-sm font-semibold shadow-xl">
           {toast.msg}
         </div>
       )}
@@ -1736,7 +1772,7 @@ function PublishForm({
               <button
                 type="button"
                 onClick={onRemoveImage}
-                className="absolute -top-2 -right-2 bg-white text-[#FF8000] rounded-full p-0.5 shadow"
+                className="absolute -top-2 -right-2 bg-white text-[#BF5600] rounded-full p-0.5 shadow"
               >
                 <X size={12} />
               </button>
@@ -1921,7 +1957,7 @@ function PublishForm({
             <button
               type="submit"
               disabled={submitting || authSending}
-              className="flex-1 bg-white text-[#FF8000] font-semibold py-3 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
+              className="flex-1 bg-white text-[#BF5600] font-semibold py-3 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
             >
               {submitting
                 ? "Invio in corso..."
@@ -2078,7 +2114,7 @@ function LoginBox({ email, setEmail, onSend, sending, sent }) {
       <button
         type="submit"
         disabled={sending}
-        className="w-full bg-white text-[#FF8000] font-semibold py-3 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
+        className="w-full bg-white text-[#BF5600] font-semibold py-3 rounded-xl hover:bg-[#FFE3B0] transition-colors disabled:opacity-60"
       >
         {sending ? "Invio in corso..." : "Invia link di accesso"}
       </button>
@@ -2166,7 +2202,7 @@ function DomandeEvento({ evento }) {
     return (
       <button
         onClick={() => setAperto(true)}
-        className="inline-flex items-center gap-1.5 rounded-full bg-white text-[#4D8AFF] px-3 py-1.5 text-xs font-bold shadow-sm hover:bg-[#EAF1FF] transition-colors"
+        className="inline-flex items-center gap-1.5 rounded-full bg-white text-[#2F63D4] px-3 py-1.5 text-xs font-bold shadow-sm hover:bg-[#EAF1FF] transition-colors"
       >
         <Sparkles size={13} /> Chiedi all'IA
       </button>
@@ -2218,7 +2254,7 @@ function DomandeEvento({ evento }) {
         <button
           type="submit"
           disabled={caricamento || !domanda.trim()}
-          className="shrink-0 bg-white text-[#4D8AFF] rounded-lg px-2.5 py-1.5 disabled:opacity-40"
+          className="shrink-0 bg-white text-[#2F63D4] rounded-lg px-2.5 py-1.5 disabled:opacity-40"
           aria-label="Invia domanda"
         >
           <Send size={13} />

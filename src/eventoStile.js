@@ -20,12 +20,12 @@ export const CATEGORIES = [
 // Identita' visiva per categoria: colore d'accento e illustrazione di
 // fallback quando l'evento non ha una foto propria (al posto della mappa).
 export const CATEGORY_STYLE = {
-  Musica: { accent: "#8B5CF6", icon: Music, from: "#7C3AED", to: "#C4B5FD" },
-  Sagra: { accent: "#F97316", icon: UtensilsCrossed, from: "#EA580C", to: "#FDBA74" },
-  Mercatino: { accent: "#059669", icon: ShoppingBag, from: "#047857", to: "#6EE7B7" },
-  Sport: { accent: "#0284C7", icon: Trophy, from: "#0369A1", to: "#7DD3FC" },
+  Musica: { accent: "#7C3AED", icon: Music, from: "#7C3AED", to: "#C4B5FD" },
+  Sagra: { accent: "#C2410C", icon: UtensilsCrossed, from: "#EA580C", to: "#FDBA74" },
+  Mercatino: { accent: "#047857", icon: ShoppingBag, from: "#047857", to: "#6EE7B7" },
+  Sport: { accent: "#0369A1", icon: Trophy, from: "#0369A1", to: "#7DD3FC" },
   "Arte & Cultura": { accent: "#DB2777", icon: Palette, from: "#BE185D", to: "#F9A8D4" },
-  Famiglia: { accent: "#D97706", icon: Users, from: "#B45309", to: "#FCD34D" },
+  Famiglia: { accent: "#B45309", icon: Users, from: "#B45309", to: "#FCD34D" },
   Nightlife: { accent: "#4F46E5", icon: Moon, from: "#4338CA", to: "#A5B4FC" },
   Altro: { accent: "#64748B", icon: Sparkles, from: "#475569", to: "#CBD5E1" },
 };
