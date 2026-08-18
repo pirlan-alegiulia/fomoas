@@ -6,7 +6,9 @@ import { slugEvento } from "../lib/slug.js";
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
 export default async function handler(req, res) {
-  const siteUrl = `https://${req.headers.host}`;
+  // Sempre il dominio ufficiale: il sito risponde anche su fomoas.vercel.app
+  // e da li' avremmo generato indirizzi di un sito gemello.
+  const siteUrl = "https://www.fomoas.com";
 
   const { data: eventi } = await supabase
     .from("eventi")

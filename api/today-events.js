@@ -20,7 +20,9 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=0, s-maxage=300");
 
-  const siteUrl = `https://${req.headers.host}`;
+  // Sempre il dominio ufficiale: il sito risponde anche su fomoas.vercel.app
+  // e da li' avremmo generato indirizzi di un sito gemello.
+  const siteUrl = "https://www.fomoas.com";
   const giorno = typeof req.query.giorno === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.giorno) ? req.query.giorno : oggiISO();
   const prossimi = req.query.prossimi === "1";
 

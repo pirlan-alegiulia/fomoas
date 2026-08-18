@@ -14,6 +14,8 @@ export const config = { matcher: ["/", "/evento/:path*"] };
 const BOT_UA =
   /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|slackbot|skypeuripreview|linkedinbot|twitterbot|pinterest|redditbot|embedly|quora link preview|vkshare|baiduspider|yandex|duckduckbot|ia_archiver|gptbot|chatgpt-user|oai-searchbot|claudebot|claude-web|anthropic-ai|perplexitybot|perplexity-user|google-extended|googleother|applebot|amazonbot|bytespider|diffbot|ccbot|meta-externalagent|semrushbot|ahrefsbot|mj12bot|dotbot/i;
 
+const SITO_UFFICIALE = "https://www.fomoas.com";
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
@@ -22,7 +24,11 @@ export default async function middleware(request) {
   if (!BOT_UA.test(ua) || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
 
   const url = new URL(request.url);
-  const siteUrl = url.origin;
+  // Sempre il dominio ufficiale, mai quello da cui arriva la richiesta: il
+  // sito risponde anche su fomoas.vercel.app, e ricavando l'indirizzo
+  // dall'host quella copia dichiarava se stessa come canonica. Per i motori
+  // erano due siti gemelli in concorrenza, con i segnali divisi a meta'.
+  const siteUrl = SITO_UFFICIALE;
 
   try {
     const match = url.pathname.match(/^\/evento\/([^/]+)/);

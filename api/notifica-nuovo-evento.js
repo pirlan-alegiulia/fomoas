@@ -37,7 +37,9 @@ export default async function handler(req, res) {
     return;
   }
 
-  const siteUrl = `https://${req.headers.host}`;
+  // Sempre il dominio ufficiale: il sito risponde anche su fomoas.vercel.app
+  // e da li' avremmo generato indirizzi di un sito gemello.
+  const siteUrl = "https://www.fomoas.com";
   const html = `
     <p>Nuovo evento pubblicato in attesa di verifica su fomoas:</p>
     <p><strong>${esc(e.titolo)}</strong><br>
