@@ -64,6 +64,13 @@ export default function EventPage({ id }) {
       setStato("ok");
       document.title = `${trovato.titolo} — ${trovato.luogo} — fomoas`;
 
+      // Il canonical nel documento e' quello della homepage: qui va
+      // sostituito con l'indirizzo di questo evento, altrimenti tutte le
+      // pagine si dichiarerebbero copie della bacheca.
+      document
+        .querySelector('link[rel="canonical"]')
+        ?.setAttribute("href", `https://www.fomoas.com/evento/${slugEvento(trovato)}`);
+
       // Vecchio indirizzo col solo codice: lo sostituiamo con quello
       // leggibile senza ricaricare, cosi chi condivide copia la versione
       // buona e i link gia' in giro continuano a funzionare.

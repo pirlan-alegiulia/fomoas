@@ -12,7 +12,10 @@ import { slugEvento, slugifica, leggiSlug, eUnCodice } from "./lib/slug.js";
 export const config = { matcher: ["/", "/evento/:path*"] };
 
 const BOT_UA =
-  /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|slackbot|skypeuripreview|linkedinbot|twitterbot|pinterest|redditbot|embedly|quora link preview|vkshare|baiduspider|yandex|duckduckbot|ia_archiver|gptbot|chatgpt-user|oai-searchbot|claudebot|claude-web|anthropic-ai|perplexitybot|perplexity-user|google-extended|googleother|applebot|amazonbot|bytespider|diffbot|ccbot|meta-externalagent|semrushbot|ahrefsbot|mj12bot|dotbot/i;
+  // google-inspectiontool e' lo strumento "Controlla URL" di Search Console:
+  // non contiene "bot" nel nome, quindi senza citarlo riceveva l'app vuota e
+  // riportava che la pagina non dichiara un canonical.
+  /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|slackbot|skypeuripreview|linkedinbot|twitterbot|pinterest|redditbot|embedly|quora link preview|vkshare|baiduspider|yandex|duckduckbot|ia_archiver|gptbot|chatgpt-user|oai-searchbot|claudebot|claude-web|anthropic-ai|perplexitybot|perplexity-user|google-extended|googleother|google-inspectiontool|google-safety|applebot|amazonbot|bytespider|diffbot|ccbot|meta-externalagent|semrushbot|ahrefsbot|mj12bot|dotbot/i;
 
 const SITO_UFFICIALE = "https://www.fomoas.com";
 
