@@ -10,7 +10,9 @@ export default async function handler(req, res) {
 
   const { data: eventi } = await supabase
     .from("eventi")
-    .select("id, created_at")
+    // titolo e data servono a comporre l'indirizzo leggibile: senza, lo slug
+    // resta vuoto e si ripiega sul codice interno.
+    .select("id, titolo, data, created_at")
     .eq("verificato", true);
 
   // La data della homepage segue l'ultimo evento pubblicato: e' quello che
